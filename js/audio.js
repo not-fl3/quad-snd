@@ -20,7 +20,35 @@ audio_register_js_plugin = function (importObject) {
             }
         }, false);
 
-        ctx = new AudioContext();
+        // https://gist.github.com/kus/3f01d60569eeadefe3a1
+        {
+            audioContext = window.AudioContext || window.webkitAudioContext;
+            ctx = new audioContext();
+            var fixAudioContext = function (e) {
+                // Create empty buffer
+                var buffer = ctx.createBuffer(1, 1, 22050);
+                var source = ctx.createBufferSource();
+                source.buffer = buffer;
+                // Connect to output (speakers)
+                source.connect(ctx.destination);
+                // Play sound
+                if (source.start) {
+                    source.start(0);
+                } else if (source.play) {
+                    source.play(0);
+                } else if (source.noteOn) {
+                    source.noteOn(0);
+                }
+
+                // Remove events
+                document.removeEventListener('touchstart', fixAudioContext);
+                document.removeEventListener('touchend', fixAudioContext);
+            };
+            // iOS 6-8
+            document.addEventListener('touchstart', fixAudioContext);
+            // iOS 9
+            document.addEventListener('touchend', fixAudioContext);
+        }
 
         buffer_size = audio_buffer_size;
 
