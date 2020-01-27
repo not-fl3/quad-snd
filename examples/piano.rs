@@ -57,8 +57,8 @@ fn main() {
 
         draw_window(hash!(), Vec2::new(20., 20.), Vec2::new(700., 200.), |ui| {
             for i in 0..15 {
-                let octave = 40; // I HAVE NO IDEA 
-                
+                let octave = 40; // I HAVE NO IDEA
+
                 if widgets::Button::new(format!("{}", i))
                     .position(Vector2::new(i as f32 * 45. + 10., 40.))
                     .size(Vector2::new(40., 70.))

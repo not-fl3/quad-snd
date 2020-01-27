@@ -1,14 +1,15 @@
 use super::{SoundError, SoundGenerator};
 
-extern "C" { 
-    fn audio_init(buffer_size: u32) -> bool; 
+extern "C" {
+    fn audio_init(buffer_size: u32) -> bool;
     fn audio_current_time() -> f64;
     fn audio_samples(buffer: *mut f32, audio_start: f64) -> f64;
     fn audio_sample_rate() -> f64;
+    fn audio_pause_state() -> f64;
 }
 
 pub struct SoundDriver<T> {
-    generator: Option<Box<SoundGenerator<T>>>,
+    generator: Option<Box<dyn SoundGenerator<T>>>,
     start_audio: f64,
     buffer: [f32; BUFFER_SIZE as usize * 2],
     err: SoundError,
@@ -28,7 +29,7 @@ impl<T> SoundDriver<T> {
         self.err
     }
 
-    pub fn new(generator: Box<SoundGenerator<T>>) -> Self {
+    pub fn new(generator: Box<dyn SoundGenerator<T>>) -> Self {
         let success = unsafe { audio_init(BUFFER_SIZE) };
 
         let err = if success == false {
@@ -46,7 +47,17 @@ impl<T> SoundDriver<T> {
     // -1 => game paused
     // >0 => pause duration
     fn get_pause_status(&self) -> GameStatus {
-        GameStatus::Running
+        let value: f64 = unsafe { audio_pause_state() };
+
+        if value == 0.0 {
+            GameStatus::Running
+        } else {
+            if value == -1.0 {
+                GameStatus::Paused
+            } else {
+                GameStatus::Resumed(value)
+            }
+        }
     }
     pub fn send_event(&mut self, event: T) {
         if let Some(ref mut gen) = self.generator {

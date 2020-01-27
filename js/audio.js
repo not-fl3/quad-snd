@@ -13,11 +13,11 @@ audio_register_js_plugin = function (importObject) {
         window.startPause = 0;
         window.endPause = 0;
         document.addEventListener("visibilitychange", (e) => {
-            // if (document.hidden) {
-            //     window.startPause = performance.now() / 1000.0;
-            // } else {
-            //     window.endPause = performance.now() / 1000.0;
-            // }
+            if (document.hidden) {
+                window.startPause = performance.now() / 1000.0;
+            } else {
+                window.endPause = performance.now() / 1000.0;
+            }
         }, false);
 
         ctx = new AudioContext();
@@ -54,6 +54,19 @@ audio_register_js_plugin = function (importObject) {
 
     importObject.env.audio_sample_rate = function () {
         return ctx.sampleRate;
+    }
+
+    importObject.env.audio_pause_state = function () {
+        var duration = window.endPause - window.startPause;
+        if (duration > 0) {
+            window.endPause = 0;
+            window.startPause = 0;
+            return duration;
+        } else if (window.startPause > 0) {
+            return -1;
+        } else {
+            return 0.0;
+        }
     }
 }
 
