@@ -25,6 +25,8 @@ audio_register_js_plugin = function (importObject) {
             audioContext = window.AudioContext || window.webkitAudioContext;
             ctx = new audioContext();
             var fixAudioContext = function (e) {
+                console.log("fix");
+
                 // Create empty buffer
                 var buffer = ctx.createBuffer(1, 1, 22050);
                 var source = ctx.createBufferSource();
@@ -43,11 +45,14 @@ audio_register_js_plugin = function (importObject) {
                 // Remove events
                 document.removeEventListener('touchstart', fixAudioContext);
                 document.removeEventListener('touchend', fixAudioContext);
+                document.removeEventListener('mousedown', fixAudioContext);
             };
             // iOS 6-8
             document.addEventListener('touchstart', fixAudioContext);
             // iOS 9
             document.addEventListener('touchend', fixAudioContext);
+
+            document.addEventListener('mousedown', fixAudioContext);
         }
 
         buffer_size = audio_buffer_size;
