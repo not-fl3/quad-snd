@@ -2,7 +2,7 @@ var ctx = null;
 var buffer_size = 0;
 var memory;
 
-audio_set_mem = function (wasm_memory) {
+audio_set_mem = function (wasm_memory, _wasm_exports) {
     memory = wasm_memory;
 }
 audio_register_js_plugin = function (importObject) {

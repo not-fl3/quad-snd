@@ -25,8 +25,7 @@
     <!-- Minified and statically hosted version of https://github.com/not-fl3/miniquad/blob/master/native/sapp-wasm/js/gl.js -->
     <script src="https://not-fl3.github.io/miniquad-samples/gl.js"></script>
     <script src="audio.js"></script>
-    <script>load("piano.wasm", [{ init: audio_register_js_plugin, set_mem: audio_set_mem }]);</script>
-    <!-- Your compiled wasm file -->
+    <script>load("piano.wasm", [{ register_plugin: audio_register_js_plugin, set_wasm_refs: audio_set_mem }]);</script>
 </body>
 
 </html>
