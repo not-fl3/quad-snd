@@ -17,4 +17,4 @@ edition = "2018"
 cpal= "0.11.0"
 
 [dev-dependencies]
-macroquad = { git = "https://github.com/not-fl3/macroquad", branch = "ui" }
+macroquad = "0.2.0-alpha.0"

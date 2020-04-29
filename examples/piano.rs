@@ -39,7 +39,8 @@ impl uni_snd::SoundGenerator<f32> for Oscillator {
     }
 }
 
-fn main() {
+#[macroquad::main("Piano")]
+async fn main() {
     let mut snd = uni_snd::SoundDriver::new(Box::new(Oscillator {
         sample_rate: 0.0,
         t: 0.0,
@@ -50,12 +51,12 @@ fn main() {
 
     snd.start();
 
-    Window::new("Piano").main_loop(|| {
+    loop {
         snd.frame();
 
         clear_background(WHITE);
 
-        draw_window(hash!(), Vec2::new(20., 20.), Vec2::new(700., 200.), |ui| {
+        draw_window(hash!(), Vec2::new(20., 20.), Vec2::new(700., 200.), None, |ui| {
             for i in 0..15 {
                 let octave = 40; // I HAVE NO IDEA
 
@@ -69,5 +70,7 @@ fn main() {
                 }
             }
         });
-    });
+
+        next_frame().await
+    }
 }
