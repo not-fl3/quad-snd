@@ -1,17 +1,17 @@
 [package]
-name = "uni-snd"
+name = "quad-snd"
 version = "0.1.0"
-authors = ["jice <jice.nospam@gmail.com>"]
+authors = ["not-fl3 <not.fl3@gmail.com>"]
 description = "Unrust low level native/wasm compatibility layer for sound output"
 license = "MIT"
-documentation = "https://docs.rs/uni-snd"
-repository = "https://github.com/unrust/uni-snd"
+documentation = "https://docs.rs/quad-snd"
+repository = "https://github.com/not-fl3/quad-snd"
 keywords = ["sound", "wasm"]
 edition = "2018"
 
 [dependencies]
-#[target.wasm32-unknown-unknown.dependencies]
-#stdweb =  "0.4.8"
+hound = "*"
+lewton = "*"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal= "0.11.0"

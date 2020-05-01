@@ -2,13 +2,15 @@
 #[path = "web_snd.rs"]
 pub mod snd;
 
-// NOT wasm-unknown-unknown
 #[cfg(not(target_arch = "wasm32"))]
 extern crate cpal;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[path = "native_snd.rs"]
 pub mod snd;
+
+pub mod decoder;
+pub mod mixer;
 
 pub use self::snd::*;
 

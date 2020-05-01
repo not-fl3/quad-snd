@@ -57,9 +57,7 @@ impl<T: Send + 'static> SoundDriver<T> {
             }
         };
 
-        // Make it mono
-        // TODO support stereo
-        output_format.channels = 1;
+        output_format.channels = 2;
 
         let stream_id = match event_loop.build_output_stream(&device, &output_format) {
             Ok(output_stream) => output_stream,
