@@ -43,11 +43,11 @@ impl SoundMixer {
 
     pub fn play(&mut self, sound: Sound) -> SoundId {
         let sound_id = SoundId(self.uid);
-
         self.uid += 1;
 
         self.driver.send_event(MixerMessage::Play(sound_id, sound));
-        SoundId(0)
+
+        sound_id
     }
 
     pub fn stop(&mut self, sound_id: SoundId) {
@@ -74,6 +74,9 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                         progress: 0,
                     },
                 );
+            },
+            MixerMessage::Stop(id) => {
+                self.sounds.remove(&id);
             }
             _ => {}
         }

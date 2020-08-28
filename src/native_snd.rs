@@ -89,12 +89,14 @@ impl<T: Send + 'static> SoundDriver<T> {
             err: SoundError::NoError,
         }
     }
+    
     /// Send an event to the generator
     pub fn send_event(&mut self, event: T) {
         if let Some(ref mut tx) = self.tx {
             tx.send(event).unwrap();
         }
     }
+
     fn get_sample_rate(&self) -> f32 {
         if let Some(ref fmt) = self.format {
             fmt.sample_rate.0 as f32
