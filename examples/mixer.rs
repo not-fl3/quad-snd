@@ -19,6 +19,8 @@ async fn main() {
 
     let mut mixer = SoundMixer::new();
 
+    let mut sound_ids = Vec::new();
+
     loop {
         clear_background(WHITE);
 
@@ -28,7 +30,7 @@ async fn main() {
                 .size(Vector2::new(100., 17.))
                 .ui(ui)
             {
-                mixer.play(wav_sound.clone());
+                sound_ids.push(mixer.play(wav_sound.clone()));
             }
 
             if widgets::Button::new("MAGIC 2")
@@ -36,7 +38,17 @@ async fn main() {
                 .size(Vector2::new(100., 17.))
                 .ui(ui)
             {
-                mixer.play(ogg_sound.clone());
+                sound_ids.push(mixer.play(ogg_sound.clone()));
+            }
+
+            if widgets::Button::new("STOP")
+                .position(Vector2::new(5., 80.))
+                .size(Vector2::new(100., 17.))
+                .ui(ui)
+            {
+                while let Some(id) = sound_ids.pop() {
+                    mixer.stop(id);
+                }
             }
         });
 
