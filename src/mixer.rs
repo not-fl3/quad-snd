@@ -54,10 +54,6 @@ impl SoundMixer {
         self.driver.send_event(MixerMessage::Stop(sound_id))
     }
 
-    pub fn stop(&mut self, sound_id: SoundId) {
-        self.driver.send_event(MixerMessage::Stop(sound_id))
-    }
-
     pub fn frame(&mut self) {
         self.driver.frame();
     }

@@ -13,7 +13,7 @@ struct Oscillator {
     left: bool,
 }
 
-impl uni_snd::SoundGenerator<f32> for Oscillator {
+impl quad_snd::SoundGenerator<f32> for Oscillator {
     fn init(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
     }
@@ -41,7 +41,7 @@ impl uni_snd::SoundGenerator<f32> for Oscillator {
 
 #[macroquad::main("Piano")]
 async fn main() {
-    let mut snd = uni_snd::SoundDriver::new(Box::new(Oscillator {
+    let mut snd = quad_snd::SoundDriver::new(Box::new(Oscillator {
         sample_rate: 0.0,
         t: 0.0,
         freq: 440.0,
