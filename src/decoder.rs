@@ -1,4 +1,4 @@
-use crate::mixer::Sound;
+use crate::mixer::{Sound, PlaybackStyle};
 
 #[derive(Debug)]
 pub enum Error {
@@ -39,6 +39,7 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, Error> {
         sample_rate: spec.sample_rate as f32,
         channels: spec.channels,
         samples,
+        playback_style: PlaybackStyle::Once,
     })
 }
 
@@ -64,5 +65,6 @@ pub fn read_ogg(data: &[u8]) -> Result<Sound, Error> {
         sample_rate: sample_rate as _,
         channels: channels as _,
         samples,
+        playback_style: PlaybackStyle::Once,
     })
 }
