@@ -52,9 +52,7 @@ async fn main() {
             {
                 let new_volume = VOLUMES[next_random_volume_id];
                 next_random_volume_id = (next_random_volume_id + 1) % VOLUMES.len();
-                for &id in sound_ids.iter() {
-                    mixer.set_volume(id, Volume(new_volume));
-                }
+                mixer.set_volume_self(Volume(new_volume));
             }
 
             if widgets::Button::new("STOP")
