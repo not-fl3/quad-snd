@@ -2,7 +2,7 @@ use crate::{SoundDriver, SoundGenerator};
 
 use std::collections::HashMap;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PlaybackStyle {
     Once,
     Looped
@@ -93,15 +93,25 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
         let mut value = 0.;
 
         for (_, mut sound) in &mut self.sounds {
-            if sound.progress < sound.data.samples.len() {
-                let divisor = match sound.data.channels {
-                    1 => 2,
-                    2 => 1,
-                    _ => panic!("unsupported format"),
-                };
-                value += sound.data.samples[sound.progress / divisor];
-                sound.progress += 1;
+            if sound.progress >= sound.data.samples.len() {
+                match sound.data.playback_style {
+                    PlaybackStyle::Once => {
+                        continue;
+                    }
+                    PlaybackStyle::Looped => {
+                        sound.progress = 0;
+                    }
+                }
             }
+
+            let divisor = match sound.data.channels {
+                1 => 2,
+                2 => 1,
+                _ => panic!("unsupported format"),
+            };
+
+            value += sound.data.samples[sound.progress / divisor];
+            sound.progress += 1;
         }
         value
     }

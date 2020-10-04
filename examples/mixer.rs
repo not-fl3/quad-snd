@@ -8,13 +8,15 @@ use quad_snd::{
     decoder::{read_ogg, read_wav},
     mixer::SoundMixer,
 };
+use quad_snd::decoder::read_wav_ext;
+use quad_snd::mixer::PlaybackStyle;
 
 const WAV_BYTES: &'static [u8] = include_bytes!("test.wav");
 const OGG_BYTES: &'static [u8] = include_bytes!("test.ogg");
 
 #[macroquad::main("Mixer")]
 async fn main() {
-    let wav_sound = read_wav(WAV_BYTES).unwrap();
+    let wav_sound = read_wav_ext(WAV_BYTES, PlaybackStyle::Looped).unwrap();
     let ogg_sound = read_ogg(OGG_BYTES).unwrap();
 
     let mut mixer = SoundMixer::new();
