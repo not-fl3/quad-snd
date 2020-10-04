@@ -19,6 +19,7 @@ pub struct Sound {
 struct SoundInternal {
     data: Sound,
     progress: usize,
+    volume: f32
 }
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
@@ -26,6 +27,8 @@ pub struct SoundId(usize);
 
 enum MixerMessage {
     Play(SoundId, Sound),
+    PlayExt(SoundId, Sound, f32),
+    SetVolume(SoundId, f32),
     Stop(SoundId),
 }
 struct MixerInternal {
@@ -57,6 +60,19 @@ impl SoundMixer {
         sound_id
     }
 
+    pub fn play_ext(&mut self, sound: Sound, volume: f32) -> SoundId {
+        let sound_id = SoundId(self.uid);
+        self.uid += 1;
+
+        self.driver.send_event(MixerMessage::PlayExt(sound_id, sound, volume));
+
+        sound_id
+    }
+
+    pub fn set_volume(&mut self, sound_id: SoundId, volume: f32) {
+        self.driver.send_event(MixerMessage::SetVolume(sound_id, volume))
+    }
+
     pub fn stop(&mut self, sound_id: SoundId) {
         self.driver.send_event(MixerMessage::Stop(sound_id))
     }
@@ -79,8 +95,26 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                     SoundInternal {
                         data: sound,
                         progress: 0,
+                        volume: 1.0
                     },
                 );
+            },
+            MixerMessage::PlayExt(id, sound, volume) => {
+                assert!(volume <= 1.0);
+                self.sounds.insert(
+                    id,
+                    SoundInternal {
+                        data: sound,
+                        progress: 0,
+                        volume: volume * volume // it's better to remap volume exponentially so user hears difference more
+                    },
+                );
+            },
+            MixerMessage::SetVolume(id, volume) => {
+                if let Some(sound) = self.sounds.get_mut(&id) {
+                    assert!(volume <= 1.0);
+                    sound.volume = volume * volume;
+                }
             },
             MixerMessage::Stop(id) => {
                 self.sounds.remove(&id);
@@ -110,7 +144,7 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                 _ => panic!("unsupported format"),
             };
 
-            value += sound.data.samples[sound.progress / divisor];
+            value += sound.data.samples[sound.progress / divisor] * sound.volume;
             sound.progress += 1;
         }
         value
