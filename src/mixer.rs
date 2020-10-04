@@ -109,15 +109,14 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                     SoundInternal {
                         data: sound,
                         progress: 0,
-                        volume: Volume(volume.0 * volume.0) // it's better to remap volume exponentially
-                                                            // so user hears difference instantly
+                        volume
                     },
                 );
             },
             MixerMessage::SetVolume(id, volume) => {
                 if let Some(sound) = self.sounds.get_mut(&id) {
                     assert!(volume.0 <= 1.0);
-                    sound.volume = Volume(volume.0 * volume.0);
+                    sound.volume = volume;
                 }
             },
             MixerMessage::Stop(id) => {
@@ -148,7 +147,11 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                 _ => panic!("unsupported format"),
             };
 
-            value += sound.data.samples[sound.progress / divisor] * sound.volume.0;
+            // it's better to remap volume exponentially
+            // so user hears difference instantly
+            let volume = sound.volume.0 * sound.volume.0;
+
+            value += sound.data.samples[sound.progress / divisor] * volume;
             sound.progress += 1;
         }
         value
