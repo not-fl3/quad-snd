@@ -3,10 +3,17 @@ use crate::{SoundDriver, SoundGenerator};
 use std::collections::HashMap;
 
 #[derive(Clone)]
+pub enum PlaybackStyle {
+    Once,
+    Looped
+}
+
+#[derive(Clone)]
 pub struct Sound {
     pub sample_rate: f32,
     pub channels: u16,
     pub samples: Vec<f32>,
+    pub playback_style: PlaybackStyle
 }
 
 struct SoundInternal {
