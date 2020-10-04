@@ -32,7 +32,7 @@ async fn main() {
                 .size(Vector2::new(100., 17.))
                 .ui(ui)
             {
-                sound_ids.push(mixer.play(wav_sound.clone()));
+                sound_ids.push(mixer.play_ext(wav_sound.clone(), 1.0));
             }
 
             if widgets::Button::new("MAGIC 2")
