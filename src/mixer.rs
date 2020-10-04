@@ -2,7 +2,7 @@ use crate::{SoundDriver, SoundGenerator};
 
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum PlaybackStyle {
     Once,
     Looped
@@ -32,16 +32,18 @@ enum MixerMessage {
     Play(SoundId, Sound),
     PlayExt(SoundId, Sound, Volume),
     SetVolume(SoundId, Volume),
+    SetVolumeSelf(Volume),
     Stop(SoundId),
 }
 struct MixerInternal {
     sample_rate: f32,
     sounds: HashMap<SoundId, SoundInternal>,
+    volume: Volume
 }
 
 pub struct SoundMixer {
     driver: SoundDriver<MixerMessage>,
-    uid: usize,
+    uid: usize
 }
 
 impl SoundMixer {
@@ -49,6 +51,17 @@ impl SoundMixer {
         let mut driver = SoundDriver::new(Box::new(MixerInternal {
             sample_rate: 0.,
             sounds: HashMap::new(),
+            volume: Volume(1.0)
+        }));
+        driver.start();
+        SoundMixer { driver, uid: 0 }
+    }
+
+    pub fn new_ext(initial_volume: Volume) -> SoundMixer {
+        let mut driver = SoundDriver::new(Box::new(MixerInternal {
+            sample_rate: 0.,
+            sounds: HashMap::new(),
+            volume: initial_volume
         }));
         driver.start();
         SoundMixer { driver, uid: 0 }
@@ -74,6 +87,10 @@ impl SoundMixer {
 
     pub fn set_volume(&mut self, sound_id: SoundId, volume: Volume) {
         self.driver.send_event(MixerMessage::SetVolume(sound_id, volume));
+    }
+
+    pub fn set_volume_self(&mut self, volume: Volume) {
+        self.driver.send_event(MixerMessage::SetVolumeSelf(volume));
     }
 
     pub fn stop(&mut self, sound_id: SoundId) {
@@ -119,6 +136,9 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                     sound.volume = volume;
                 }
             },
+            MixerMessage::SetVolumeSelf( volume) => {
+                self.volume = volume;
+            },
             MixerMessage::Stop(id) => {
                 self.sounds.remove(&id);
             },
@@ -147,9 +167,10 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                 _ => panic!("unsupported format"),
             };
 
+            let volume = sound.volume.0 * self.volume.0;
             // it's better to remap volume exponentially
             // so user hears difference instantly
-            let volume = sound.volume.0 * sound.volume.0;
+            let volume = volume * volume;
 
             value += sound.data.samples[sound.progress / divisor] * volume;
             sound.progress += 1;
