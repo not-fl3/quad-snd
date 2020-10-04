@@ -1,4 +1,4 @@
-extern crate uni_snd;
+use quad_snd::{SoundGenerator, SoundDriver};
 
 struct Oscillator {
     sample_rate: f32,
@@ -6,7 +6,7 @@ struct Oscillator {
     left: bool,
 }
 
-impl uni_snd::SoundGenerator<u8> for Oscillator {
+impl SoundGenerator<u8> for Oscillator {
     fn init(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
     }
@@ -20,12 +20,12 @@ impl uni_snd::SoundGenerator<u8> for Oscillator {
             // 440 Hz sin oscillator
             self.t += 440.0 / self.sample_rate;
         }
-        (self.t * 3.14159 * 2.0).sin()
+        (self.t * std::f32::consts::PI * 2.0).sin()
     }
 }
 
 fn main() {
-    let mut snd = uni_snd::SoundDriver::new(Box::new(Oscillator {
+    let mut snd = SoundDriver::new(Box::new(Oscillator {
         sample_rate: 0.0,
         t: 0.0,
         left: false,
