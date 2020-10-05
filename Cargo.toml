@@ -1,6 +1,6 @@
 [package]
 name = "quad-snd"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["not-fl3 <not.fl3@gmail.com>"]
 description = "Unrust low level native/wasm compatibility layer for sound output"
 license = "MIT"
