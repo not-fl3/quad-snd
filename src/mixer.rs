@@ -150,7 +150,13 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
         let mut value = 0.;
 
         for (_, mut sound) in &mut self.sounds {
-            if sound.progress >= sound.data.samples.len() {
+            let len_expected = match sound.data.channels {
+                1 => sound.data.samples.len() * 2,
+                2 => sound.data.samples.len(),
+                _ => panic!("unsupported format"),
+            };
+            
+            if sound.progress >= len_expected {
                 match sound.data.playback_style {
                     PlaybackStyle::Once => {
                         continue;
