@@ -4,6 +4,7 @@ use std::thread;
 
 use super::{SoundError, SoundGenerator};
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
+use cpal::SampleRate;
 
 /// This is the sound API that allows you to send events to your generator.
 pub struct SoundDriver<T: Send + 'static> {
@@ -73,6 +74,8 @@ impl<T: Send + 'static> SoundDriver<T> {
                 };
             }
         };
+
+        output_format.sample_rate = SampleRate(44100);
 
         println!(
             "sound device : {} format {:?}\n",
