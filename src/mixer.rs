@@ -19,7 +19,8 @@ pub struct Sound {
 struct SoundInternal {
     data: Sound,
     progress: usize,
-    volume: Volume
+    volume: Volume,
+    ear: EarState,
 }
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
@@ -38,7 +39,22 @@ enum MixerMessage {
 struct MixerInternal {
     sample_rate: f32,
     sounds: HashMap<SoundId, SoundInternal>,
-    volume: Volume
+    dead_sounds: Vec<SoundId>,
+    volume: Volume,
+    ear: EarState,
+}
+#[derive(PartialEq, Clone, Copy)]
+enum EarState {
+    Left,
+    Right
+}
+impl EarState {
+    fn switch(&mut self) {
+        *self = match self {
+            EarState::Left => EarState::Right,
+            EarState::Right => EarState::Left
+        }
+    }
 }
 
 pub struct SoundMixer {
@@ -51,7 +67,9 @@ impl SoundMixer {
         let mut driver = SoundDriver::new(Box::new(MixerInternal {
             sample_rate: 0.,
             sounds: HashMap::new(),
-            volume: Volume(1.0)
+            dead_sounds: Vec::new(),
+            volume: Volume(1.0),
+            ear: EarState::Left
         }));
         driver.start();
         SoundMixer { driver, uid: 0 }
@@ -61,7 +79,9 @@ impl SoundMixer {
         let mut driver = SoundDriver::new(Box::new(MixerInternal {
             sample_rate: 0.,
             sounds: HashMap::new(),
-            volume: initial_volume
+            dead_sounds: Vec::new(),
+            volume: initial_volume,
+            ear: EarState::Left
         }));
         driver.start();
         SoundMixer { driver, uid: 0 }
@@ -115,7 +135,8 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                     SoundInternal {
                         data: sound,
                         progress: 0,
-                        volume: Volume(1.0)
+                        volume: Volume(1.0),
+                        ear: EarState::Left
                     },
                 );
             },
@@ -126,7 +147,8 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                     SoundInternal {
                         data: sound,
                         progress: 0,
-                        volume
+                        volume,
+                        ear: EarState::Left
                     },
                 );
             },
@@ -149,7 +171,11 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
     fn next_value(&mut self) -> f32 {
         let mut value = 0.;
 
-        for (_, mut sound) in &mut self.sounds {
+        for (sound_id, mut sound) in &mut self.sounds {
+            if self.ear != sound.ear {
+                continue;
+            }
+
             let len_expected = match sound.data.channels {
                 1 => sound.data.samples.len() * 2,
                 2 => sound.data.samples.len(),
@@ -159,6 +185,7 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
             if sound.progress >= len_expected {
                 match sound.data.playback_style {
                     PlaybackStyle::Once => {
+                        self.dead_sounds.push(*sound_id);
                         continue;
                     }
                     PlaybackStyle::Looped => {
@@ -180,7 +207,16 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
 
             value += sound.data.samples[sound.progress / divisor] * volume;
             sound.progress += 1;
+            sound.ear.switch();
         }
+
+        for sound_id in self.dead_sounds.iter() {
+            self.sounds.remove(sound_id);
+        }
+        self.dead_sounds.clear();
+
+        self.ear.switch();
+
         value
     }
 }
