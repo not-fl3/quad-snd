@@ -8,6 +8,12 @@ pub enum PlaybackStyle {
     Looped
 }
 
+#[derive(Copy, Clone)]
+struct SampleRateCorrection {
+    progress_increment_amount: usize,
+    ticks_pre_increment: usize
+}
+
 #[derive(Clone)]
 pub struct Sound {
     pub sample_rate: f32,
@@ -15,12 +21,33 @@ pub struct Sound {
     pub samples: Vec<f32>,
     pub playback_style: PlaybackStyle
 }
+impl Sound {
+    fn get_sample_rate_correction(&self) -> SampleRateCorrection {
+        let sample_rate = self.sample_rate as usize;
+        let progress_increment_amount = if sample_rate > 44100 {
+            sample_rate / 44100
+        } else {
+            1
+        } * self.channels as usize;
+        let ticks_pre_increment = if sample_rate >= 44100 {
+            1
+        } else {
+            44100 / sample_rate
+        } * 2;
+        SampleRateCorrection {
+            progress_increment_amount,
+            ticks_pre_increment
+        }
+    }
+}
 
 struct SoundInternal {
     data: Sound,
     progress: usize,
     volume: Volume,
     ear: EarState,
+    sample_rate_correction: SampleRateCorrection,
+    ticks: usize
 }
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
@@ -130,25 +157,31 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
     fn handle_event(&mut self, evt: MixerMessage) {
         match evt {
             MixerMessage::Play(id, sound) => {
+                let sample_rate_correction = sound.get_sample_rate_correction();
                 self.sounds.insert(
                     id,
                     SoundInternal {
                         data: sound,
                         progress: 0,
                         volume: Volume(1.0),
-                        ear: EarState::Left
+                        ear: EarState::Left,
+                        sample_rate_correction,
+                        ticks: sample_rate_correction.ticks_pre_increment
                     },
                 );
             },
             MixerMessage::PlayExt(id, sound, volume) => {
                 assert!(volume.0 <= 1.0);
+                let sample_rate_correction = sound.get_sample_rate_correction();
                 self.sounds.insert(
                     id,
                     SoundInternal {
                         data: sound,
                         progress: 0,
                         volume,
-                        ear: EarState::Left
+                        ear: EarState::Left,
+                        sample_rate_correction,
+                        ticks: sample_rate_correction.ticks_pre_increment
                     },
                 );
             },
@@ -175,14 +208,8 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
             if self.ear != sound.ear {
                 continue;
             }
-
-            let len_expected = match sound.data.channels {
-                1 => sound.data.samples.len() * 2,
-                2 => sound.data.samples.len(),
-                _ => panic!("unsupported format"),
-            };
             
-            if sound.progress >= len_expected {
+            if sound.progress >= sound.data.samples.len() {
                 match sound.data.playback_style {
                     PlaybackStyle::Once => {
                         self.dead_sounds.push(*sound_id);
@@ -194,19 +221,26 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                 }
             }
 
-            let divisor = match sound.data.channels {
-                1 => 2,
-                2 => 1,
-                _ => panic!("unsupported format"),
-            };
-
             let volume = sound.volume.0 * self.volume.0;
             // it's better to remap volume exponentially
             // so user hears difference instantly
             let volume = volume * volume;
 
-            value += sound.data.samples[sound.progress / divisor] * volume;
-            sound.progress += 1;
+            let next_index = match sound.data.channels {
+                1 => sound.progress,
+                2 => match sound.ear {
+                    EarState::Left => sound.progress,
+                    EarState::Right => sound.progress + 1
+                },
+                _ => unreachable!()
+            };
+            sound.ticks -= 1;
+
+            value += sound.data.samples[next_index] * volume;
+            if sound.ticks == 0 {
+                sound.progress += sound.sample_rate_correction.progress_increment_amount;
+                sound.ticks = sound.sample_rate_correction.ticks_pre_increment;
+            }
             sound.ear.switch();
         }
 
