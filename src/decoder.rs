@@ -22,7 +22,7 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, Error> {
     let reader = hound::WavReader::new(bytes)?;
     let spec = reader.spec();
 
-    assert_eq!(spec.sample_rate, 44100, "format unsupported");
+    assert_eq!(spec.sample_rate % 11025, 0, "format unsupported");
     assert_eq!(spec.bits_per_sample, 16, "format unsupported");
     assert_eq!(
         spec.sample_format,
@@ -55,7 +55,7 @@ pub fn read_ogg(data: &[u8]) -> Result<Sound, Error> {
     let sample_rate = reader.ident_hdr.audio_sample_rate as i32;
     let channels = reader.ident_hdr.audio_channels;
 
-    assert_eq!(sample_rate, 44100);
+    assert_eq!(sample_rate % 11025, 0, "format unsupported");
 
     let mut samples: Vec<f32> = vec![];
 
