@@ -29,6 +29,11 @@ fn correct_output_format(format: &mut Format) {
     format.channels = 2;
 }
 
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+fn correct_output_format(format: &mut Format) {
+    format.channels = 2;
+}
+
 impl<T: Send + 'static> SoundDriver<T> {
     /// After calling [`SoundDriver::new`], you can call this function to see if the audio initialization was a success.
     pub fn get_error(&self) -> SoundError {
