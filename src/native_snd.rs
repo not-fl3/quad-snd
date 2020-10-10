@@ -4,7 +4,7 @@ use std::thread;
 
 use super::{SoundError, SoundGenerator};
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
-use cpal::{SampleRate, Format};
+use cpal::{SampleRate, Format, SampleFormat};
 
 /// This is the sound API that allows you to send events to your generator.
 pub struct SoundDriver<T: Send + 'static> {
@@ -14,24 +14,6 @@ pub struct SoundDriver<T: Send + 'static> {
     tx: Option<Sender<T>>,
     generator: Option<Box<dyn SoundGenerator<T>>>,
     err: SoundError,
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-fn correct_output_format(format: &mut Format) {
-    format.channels = 2;
-    if format.sample_rate.0 != 44100 {
-        format.sample_rate = SampleRate(44100);
-    }
-}
-
-#[cfg(windows)]
-fn correct_output_format(format: &mut Format) {
-    format.channels = 2;
-}
-
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-fn correct_output_format(format: &mut Format) {
-    format.channels = 2;
 }
 
 impl<T: Send + 'static> SoundDriver<T> {
@@ -76,7 +58,23 @@ impl<T: Send + 'static> SoundDriver<T> {
             }
         };
 
-        correct_output_format(&mut output_format);
+        match device.supported_output_formats() {
+            Ok(available_formats) => {
+                for available_format in available_formats {
+                    if available_format.channels != 2 { continue; }
+                    if available_format.data_type != SampleFormat::F32 { continue; }
+                    if available_format.min_sample_rate.0 > 44100 { continue; }
+                    if available_format.max_sample_rate.0 < 44100 { continue; }
+                    output_format.channels = 2;
+                    output_format.data_type = SampleFormat::F32;
+                    output_format.sample_rate = SampleRate(44100);
+                    break;
+                }
+            }
+            Err(err) => {
+                println!("error : could not get supported formats : {:?}\n", err);
+            }
+        };
 
         let stream_id = match event_loop.build_output_stream(&device, &output_format) {
             Ok(output_stream) => output_stream,
@@ -98,6 +96,9 @@ impl<T: Send + 'static> SoundDriver<T> {
             device.name().unwrap_or("no device name".into()),
             &output_format
         );
+        if output_format.sample_rate.0 != 44100 {
+            println!("Caution! Output format sample rate is not 44100!");
+        }
 
         Self {
             event_loop: Some(event_loop),
