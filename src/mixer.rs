@@ -5,13 +5,13 @@ use std::collections::HashMap;
 #[derive(Clone, PartialEq)]
 pub enum PlaybackStyle {
     Once,
-    Looped
+    Looped,
 }
 
 #[derive(Copy, Clone)]
 struct SampleRateCorrection {
     progress_increment_amount: usize,
-    ticks_pre_increment: usize
+    ticks_pre_increment: usize,
 }
 
 #[derive(Clone)]
@@ -19,7 +19,7 @@ pub struct Sound {
     pub sample_rate: f32,
     pub channels: u16,
     pub samples: Vec<f32>,
-    pub playback_style: PlaybackStyle
+    pub playback_style: PlaybackStyle,
 }
 impl Sound {
     fn get_sample_rate_correction(&self) -> SampleRateCorrection {
@@ -36,7 +36,7 @@ impl Sound {
         } * 2;
         SampleRateCorrection {
             progress_increment_amount,
-            ticks_pre_increment
+            ticks_pre_increment,
         }
     }
 }
@@ -47,7 +47,7 @@ struct SoundInternal {
     volume: Volume,
     ear: EarState,
     sample_rate_correction: SampleRateCorrection,
-    ticks: usize
+    ticks: usize,
 }
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
@@ -73,20 +73,20 @@ struct MixerInternal {
 #[derive(PartialEq, Clone, Copy)]
 enum EarState {
     Left,
-    Right
+    Right,
 }
 impl EarState {
     fn switch(&mut self) {
         *self = match self {
             EarState::Left => EarState::Right,
-            EarState::Right => EarState::Left
+            EarState::Right => EarState::Left,
         }
     }
 }
 
 pub struct SoundMixer {
     driver: SoundDriver<MixerMessage>,
-    uid: usize
+    uid: usize,
 }
 
 impl SoundMixer {
@@ -96,7 +96,7 @@ impl SoundMixer {
             sounds: HashMap::new(),
             dead_sounds: Vec::new(),
             volume: Volume(1.0),
-            ear: EarState::Left
+            ear: EarState::Left,
         }));
         driver.start();
         SoundMixer { driver, uid: 0 }
@@ -108,7 +108,7 @@ impl SoundMixer {
             sounds: HashMap::new(),
             dead_sounds: Vec::new(),
             volume: initial_volume,
-            ear: EarState::Left
+            ear: EarState::Left,
         }));
         driver.start();
         SoundMixer { driver, uid: 0 }
@@ -127,13 +127,15 @@ impl SoundMixer {
         let sound_id = SoundId(self.uid);
         self.uid += 1;
 
-        self.driver.send_event(MixerMessage::PlayExt(sound_id, sound, volume));
+        self.driver
+            .send_event(MixerMessage::PlayExt(sound_id, sound, volume));
 
         sound_id
     }
 
     pub fn set_volume(&mut self, sound_id: SoundId, volume: Volume) {
-        self.driver.send_event(MixerMessage::SetVolume(sound_id, volume));
+        self.driver
+            .send_event(MixerMessage::SetVolume(sound_id, volume));
     }
 
     pub fn set_volume_self(&mut self, volume: Volume) {
@@ -166,10 +168,10 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                         volume: Volume(1.0),
                         ear: EarState::Left,
                         sample_rate_correction,
-                        ticks: sample_rate_correction.ticks_pre_increment
+                        ticks: sample_rate_correction.ticks_pre_increment,
                     },
                 );
-            },
+            }
             MixerMessage::PlayExt(id, sound, volume) => {
                 assert!(volume.0 <= 1.0);
                 let sample_rate_correction = sound.get_sample_rate_correction();
@@ -181,23 +183,23 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                         volume,
                         ear: EarState::Left,
                         sample_rate_correction,
-                        ticks: sample_rate_correction.ticks_pre_increment
+                        ticks: sample_rate_correction.ticks_pre_increment,
                     },
                 );
-            },
+            }
             MixerMessage::SetVolume(id, volume) => {
                 if let Some(sound) = self.sounds.get_mut(&id) {
                     assert!(volume.0 <= 1.0);
                     sound.volume = volume;
                 }
-            },
-            MixerMessage::SetVolumeSelf( volume) => {
+            }
+            MixerMessage::SetVolumeSelf(volume) => {
                 self.volume = volume;
-            },
+            }
             MixerMessage::Stop(id) => {
                 self.sounds.remove(&id);
-            },
-            _ => unreachable!() //it's nice to fail when we added some new event and didn't handle it properly here
+            }
+            _ => unreachable!(), //it's nice to fail when we added some new event and didn't handle it properly here
         }
     }
 
@@ -208,7 +210,7 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
             if self.ear != sound.ear {
                 continue;
             }
-            
+
             if sound.progress >= sound.data.samples.len() {
                 match sound.data.playback_style {
                     PlaybackStyle::Once => {
@@ -230,9 +232,9 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
                 1 => sound.progress,
                 2 => match sound.ear {
                     EarState::Left => sound.progress,
-                    EarState::Right => sound.progress + 1
+                    EarState::Right => sound.progress + 1,
                 },
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             sound.ticks -= 1;
 

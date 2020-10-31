@@ -1,9 +1,10 @@
-use crate::mixer::{Sound, PlaybackStyle};
+use crate::mixer::{PlaybackStyle, Sound};
 
 #[derive(Debug)]
 pub enum Error {
     HoundError(hound::Error),
     LewtonError(lewton::VorbisError),
+    ReadError(String),
 }
 
 impl std::convert::From<hound::Error> for Error {
@@ -22,13 +23,25 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, Error> {
     let reader = hound::WavReader::new(bytes)?;
     let spec = reader.spec();
 
-    assert_eq!(spec.sample_rate % 11025, 0, "format unsupported");
-    assert_eq!(spec.bits_per_sample, 16, "format unsupported");
-    assert_eq!(
-        spec.sample_format,
-        hound::SampleFormat::Int,
-        "format unsupported"
-    );
+    if spec.sample_rate % 11025 != 0 {
+        return Err(Error::ReadError(String::from(format!(
+            "Sample rate {} is unsupported.",
+            spec.sample_rate
+        ))));
+    }
+
+    if spec.bits_per_sample != 16 {
+        return Err(Error::ReadError(String::from(format!(
+            "Bits per sample {} is unsupported.",
+            spec.bits_per_sample
+        ))));
+    }
+
+    if spec.sample_format != hound::SampleFormat::Int {
+        return Err(Error::ReadError(String::from(
+            "Sample format is unsupported.",
+        )));
+    }
 
     let samples = reader
         .into_samples::<i16>()
@@ -44,7 +57,10 @@ pub fn read_wav(bytes: &[u8]) -> Result<Sound, Error> {
 }
 
 pub fn read_wav_ext(bytes: &[u8], playback_style: PlaybackStyle) -> Result<Sound, Error> {
-    read_wav(bytes).map(|sound| Sound { playback_style, ..sound })
+    read_wav(bytes).map(|sound| Sound {
+        playback_style,
+        ..sound
+    })
 }
 
 pub fn read_ogg(data: &[u8]) -> Result<Sound, Error> {
@@ -55,7 +71,12 @@ pub fn read_ogg(data: &[u8]) -> Result<Sound, Error> {
     let sample_rate = reader.ident_hdr.audio_sample_rate as i32;
     let channels = reader.ident_hdr.audio_channels;
 
-    assert_eq!(sample_rate % 11025, 0, "format unsupported");
+    if sample_rate % 11025 != 0 {
+        return Err(Error::ReadError(String::from(format!(
+            "Sample rate {} is unsupported.",
+            sample_rate
+        ))));
+    }
 
     let mut samples: Vec<f32> = vec![];
 
@@ -74,5 +95,8 @@ pub fn read_ogg(data: &[u8]) -> Result<Sound, Error> {
 }
 
 pub fn read_ogg_ext(data: &[u8], playback_style: PlaybackStyle) -> Result<Sound, Error> {
-    read_ogg(data).map(|sound| Sound {playback_style, ..sound})
+    read_ogg(data).map(|sound| Sound {
+        playback_style,
+        ..sound
+    })
 }

@@ -1,4 +1,4 @@
-use quad_snd::{SoundGenerator, SoundDriver};
+use quad_snd::{SoundDriver, SoundGenerator};
 
 struct Oscillator {
     sample_rate: f32,
