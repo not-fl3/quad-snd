@@ -4,11 +4,11 @@ use macroquad::{
     Vec2, WHITE,
 };
 
+use quad_snd::mixer::Volume;
 use quad_snd::{
     decoder::{read_ogg, read_wav_ext},
-    mixer::{SoundMixer, PlaybackStyle},
+    mixer::{PlaybackStyle, SoundMixer},
 };
-use quad_snd::mixer::Volume;
 
 const WAV_BYTES: &'static [u8] = include_bytes!("test.wav");
 const OGG_BYTES: &'static [u8] = include_bytes!("test.ogg");
