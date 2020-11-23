@@ -31,7 +31,6 @@ impl<T: Send + 'static> SoundDriver<T> {
         let device = match host.default_output_device() {
             Some(device) => device,
             None => {
-                println!("warning : no sound device detected\n");
                 return Self {
                     event_loop: Some(event_loop),
                     format: None,
@@ -46,7 +45,6 @@ impl<T: Send + 'static> SoundDriver<T> {
         let mut output_format = match device.default_output_format() {
             Ok(default_output_format) => default_output_format,
             Err(err) => {
-                println!("error : could not get default output format : {:?}\n", err);
                 return Self {
                     event_loop: Some(event_loop),
                     format: None,
@@ -79,15 +77,12 @@ impl<T: Send + 'static> SoundDriver<T> {
                     break;
                 }
             }
-            Err(err) => {
-                println!("error : could not get supported formats : {:?}\n", err);
-            }
+            Err(err) => {}
         };
 
         let stream_id = match event_loop.build_output_stream(&device, &output_format) {
             Ok(output_stream) => output_stream,
             Err(err) => {
-                println!("error : could not build output stream : {}\n", err);
                 return Self {
                     event_loop: Some(event_loop),
                     format: Some(output_format),
@@ -98,15 +93,6 @@ impl<T: Send + 'static> SoundDriver<T> {
                 };
             }
         };
-
-        println!(
-            "sound device : {} format {:?}\n",
-            device.name().unwrap_or("no device name".into()),
-            &output_format
-        );
-        if output_format.sample_rate.0 != 44100 {
-            println!("Caution! Output format sample rate is not 44100!");
-        }
 
         Self {
             event_loop: Some(event_loop),
@@ -148,7 +134,6 @@ impl<T: Send + 'static> SoundDriver<T> {
             evt.play_stream(stream_id).expect("could not play stream");
 
             thread::spawn(move || {
-                println!("starting audio loop");
                 generator.init(sample_rate);
                 evt.run(move |stream_id, stream_result| {
                     for event in rx.try_iter() {
@@ -158,7 +143,6 @@ impl<T: Send + 'static> SoundDriver<T> {
                     let stream_data = match stream_result {
                         Ok(data) => data,
                         Err(err) => {
-                            eprintln!("an error occurred on stream {:?}: {}", stream_id, err);
                             return;
                         }
                     };
