@@ -4,7 +4,7 @@ use std::thread;
 
 use super::{SoundError, SoundGenerator};
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
-use cpal::{Format, SampleFormat, SampleRate};
+use cpal::{SampleFormat, SampleRate};
 
 /// This is the sound API that allows you to send events to your generator.
 pub struct SoundDriver<T: Send + 'static> {
@@ -44,7 +44,7 @@ impl<T: Send + 'static> SoundDriver<T> {
 
         let mut output_format = match device.default_output_format() {
             Ok(default_output_format) => default_output_format,
-            Err(err) => {
+            Err(_err) => {
                 return Self {
                     event_loop: Some(event_loop),
                     format: None,
@@ -77,12 +77,13 @@ impl<T: Send + 'static> SoundDriver<T> {
                     break;
                 }
             }
-            Err(err) => {}
+            Err(_err) => {
+            }
         };
 
         let stream_id = match event_loop.build_output_stream(&device, &output_format) {
             Ok(output_stream) => output_stream,
-            Err(err) => {
+            Err(_err) => {
                 return Self {
                     event_loop: Some(event_loop),
                     format: Some(output_format),
@@ -135,14 +136,14 @@ impl<T: Send + 'static> SoundDriver<T> {
 
             thread::spawn(move || {
                 generator.init(sample_rate);
-                evt.run(move |stream_id, stream_result| {
+                evt.run(move |_stream_id, stream_result| {
                     for event in rx.try_iter() {
                         generator.handle_event(event);
                     }
 
                     let stream_data = match stream_result {
                         Ok(data) => data,
-                        Err(err) => {
+                        Err(_err) => {
                             return;
                         }
                     };

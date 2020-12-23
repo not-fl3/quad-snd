@@ -199,7 +199,6 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
             MixerMessage::Stop(id) => {
                 self.sounds.remove(&id);
             }
-            _ => unreachable!(), //it's nice to fail when we added some new event and didn't handle it properly here
         }
     }
 
