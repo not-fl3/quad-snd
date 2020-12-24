@@ -64,6 +64,16 @@ async fn main() {
                     mixer.stop(id);
                 }
             }
+
+            if widgets::Button::new("PROGRESS")
+                .position(Vector2::new(5., 140.))
+                .size(Vector2::new(130., 17.))
+                .ui(ui)
+            {
+                for id in &sound_ids {
+                    println!("Progress for {:?}: {:?}", id, mixer.get_progress(id.clone()));
+                }
+            }
         });
 
         mixer.frame();

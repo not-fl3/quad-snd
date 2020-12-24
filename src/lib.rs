@@ -8,7 +8,6 @@ extern crate cpal;
 #[cfg(not(target_arch = "wasm32"))]
 #[path = "native_snd.rs"]
 pub mod snd;
-
 pub mod decoder;
 pub mod mixer;
 
@@ -30,7 +29,7 @@ pub enum SoundError {
 /// You must provide a struct implementing this trait to the driver.
 ///
 /// This is what generates the samples to be send to the audio output.
-pub trait SoundGenerator<T>: Send {
+pub trait SoundGenerator<T, J>: Send {
     /// the sound driver calls this function during initialization to provide the audio interface sample rate.
     fn init(&mut self, sample_rate: f32);
     /// Because the sound generator runs in a separate thread on native target,
@@ -41,4 +40,10 @@ pub trait SoundGenerator<T>: Send {
     /// Remember this is stereo output, you have to generate samples alternatively for the left and right channels.
     /// Sample values should be between -1.0 and 1.0.
     fn next_value(&mut self) -> f32;
+
+    /// Returns the percentage of the sound played
+    fn get_sound_progress(&self, _id: J) -> f32 { 0.0 }
+
+    /// Whether or not the SoundGenerator contains a sound with the given id
+    fn has_sound(&self, _id: J) -> bool { false }
 }

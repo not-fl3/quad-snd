@@ -6,7 +6,7 @@ struct Oscillator {
     left: bool,
 }
 
-impl SoundGenerator<u8> for Oscillator {
+impl SoundGenerator<u8, ()> for Oscillator {
     fn init(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
     }

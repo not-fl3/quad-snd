@@ -8,8 +8,8 @@ extern "C" {
     fn audio_pause_state() -> f64;
 }
 
-pub struct SoundDriver<T> {
-    generator: Option<Box<dyn SoundGenerator<T>>>,
+pub struct SoundDriver<T, J> {
+    generator: Option<Box<dyn SoundGenerator<T, J>>>,
     start_audio: f64,
     buffer: [f32; BUFFER_SIZE as usize * 2],
     err: SoundError,
@@ -24,12 +24,28 @@ enum GameStatus {
     Resumed(f64),
 }
 
-impl<T> SoundDriver<T> {
+impl<T, J> SoundDriver<T, J> {
     pub fn get_error(&self) -> SoundError {
         self.err
     }
 
-    pub fn new(generator: Box<dyn SoundGenerator<T>>) -> Self {
+    pub fn get_sound_progress(&self, id: J) -> f32 {
+        if let Some(generator) = &self.generator {
+            return generator.get_sound_progress(id);
+        }
+
+        0.0
+    }
+
+    pub fn has_sound(&self, id: J) -> bool {
+        if let Some(generator) = &self.generator {
+            return generator.has_sound(id);
+        }
+
+        false
+    }
+
+    pub fn new(generator: Box<dyn SoundGenerator<T, J>>) -> Self {
         let success = unsafe { audio_init(BUFFER_SIZE) };
 
         let err = if success == false {
