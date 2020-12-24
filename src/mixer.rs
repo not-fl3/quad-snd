@@ -85,7 +85,7 @@ impl EarState {
 }
 
 pub struct SoundMixer {
-    driver: SoundDriver<MixerMessage>,
+    driver: SoundDriver<MixerMessage, SoundId>,
     uid: usize,
 }
 
@@ -133,6 +133,8 @@ impl SoundMixer {
         sound_id
     }
 
+    pub fn get_progress(&self, sound_id: SoundId) -> f32 { self.driver.get_sound_progress(sound_id) }
+
     pub fn set_volume(&mut self, sound_id: SoundId, volume: Volume) {
         self.driver
             .send_event(MixerMessage::SetVolume(sound_id, volume));
@@ -151,7 +153,7 @@ impl SoundMixer {
     }
 }
 
-impl SoundGenerator<MixerMessage> for MixerInternal {
+impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
     fn init(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate;
     }
@@ -253,5 +255,17 @@ impl SoundGenerator<MixerMessage> for MixerInternal {
         self.ear.switch();
 
         value
+    }
+
+    fn get_sound_progress(&self, sound_id: SoundId) -> f32 {
+        if let Some(sound) = self.sounds.get(&sound_id) {
+            return sound.progress as f32 / sound.data.samples.len() as f32;
+        }
+
+        0.0
+    }
+
+    fn has_sound(&self, sound_id: SoundId) -> bool {
+        self.sounds.contains_key(&sound_id)
     }
 }

@@ -1,5 +1,6 @@
 use std;
 use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use super::{SoundError, SoundGenerator};
@@ -7,23 +8,35 @@ use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 use cpal::{SampleFormat, SampleRate};
 
 /// This is the sound API that allows you to send events to your generator.
-pub struct SoundDriver<T: Send + 'static> {
+pub struct SoundDriver<T: Send + 'static, J: Send + 'static> {
     event_loop: Option<cpal::EventLoop>,
     format: Option<cpal::Format>,
     stream_id: Option<cpal::StreamId>,
     tx: Option<Sender<T>>,
-    generator: Option<Box<dyn SoundGenerator<T>>>,
+    generator: Arc<Mutex<Box<dyn SoundGenerator<T, J>>>>,
     err: SoundError,
 }
 
-impl<T: Send + 'static> SoundDriver<T> {
+impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
     /// After calling [`SoundDriver::new`], you can call this function to see if the audio initialization was a success.
     pub fn get_error(&self) -> SoundError {
         self.err
     }
 
+    pub fn get_sound_progress(&self, id: J) -> f32 {
+        let generator = & *(self.generator.lock().unwrap());
+
+        generator.get_sound_progress(id)
+    }
+
+    pub fn has_sound(&self, id: J) -> bool {
+        let generator = & *(self.generator.lock().unwrap());
+
+        generator.has_sound(id)
+    }
+    
     /// Initialize the sound device and provide the generator to the driver.
-    pub fn new(generator: Box<dyn SoundGenerator<T>>) -> Self {
+    pub fn new(generator: Box<dyn SoundGenerator<T, J>>) -> Self {
         // Setup the audio system
         let host = cpal::default_host();
         let event_loop = host.event_loop();
@@ -36,7 +49,7 @@ impl<T: Send + 'static> SoundDriver<T> {
                     format: None,
                     stream_id: None,
                     tx: None,
-                    generator: Some(generator),
+                    generator: Arc::new(Mutex::new(generator)),
                     err: SoundError::NoDevice,
                 };
             }
@@ -50,7 +63,7 @@ impl<T: Send + 'static> SoundDriver<T> {
                     format: None,
                     stream_id: None,
                     tx: None,
-                    generator: Some(generator),
+                    generator: Arc::new(Mutex::new(generator)),
                     err: SoundError::UnknownStreamFormat,
                 };
             }
@@ -89,7 +102,7 @@ impl<T: Send + 'static> SoundDriver<T> {
                     format: Some(output_format),
                     stream_id: None,
                     tx: None,
-                    generator: Some(generator),
+                    generator: Arc::new(Mutex::new(generator)),
                     err: SoundError::OutputStream,
                 };
             }
@@ -100,7 +113,7 @@ impl<T: Send + 'static> SoundDriver<T> {
             format: Some(output_format),
             stream_id: Some(stream_id),
             tx: None,
-            generator: Some(generator),
+            generator: Arc::new(Mutex::new(generator)),
             err: SoundError::NoError,
         }
     }
@@ -130,13 +143,22 @@ impl<T: Send + 'static> SoundDriver<T> {
         self.tx = Some(tx);
         let stream_id = self.stream_id.take().unwrap();
         let sample_rate = self.get_sample_rate();
-        let mut generator = self.generator.take().unwrap();
+
+        let generator_clone = self.generator.clone();
+
         if let Some(evt) = self.event_loop.take() {
             evt.play_stream(stream_id).expect("could not play stream");
 
             thread::spawn(move || {
-                generator.init(sample_rate);
+                {
+                    let generator = &mut *(generator_clone.lock().unwrap());
+
+                    generator.init(sample_rate);
+                }
+
                 evt.run(move |_stream_id, stream_result| {
+                    let generator = &mut *(generator_clone.lock().unwrap());
+                    
                     for event in rx.try_iter() {
                         generator.handle_event(event);
                     }
