@@ -48,6 +48,7 @@ struct SoundInternal {
     ear: EarState,
     sample_rate_correction: SampleRateCorrection,
     ticks: usize,
+    pub is_playing: bool,
 }
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
@@ -62,6 +63,8 @@ enum MixerMessage {
     SetVolume(SoundId, Volume),
     SetVolumeSelf(Volume),
     Stop(SoundId),
+    Pause(SoundId),
+    Resume(SoundId),
 }
 struct MixerInternal {
     sample_rate: f32,
@@ -148,6 +151,14 @@ impl SoundMixer {
         self.driver.send_event(MixerMessage::Stop(sound_id));
     }
 
+    pub fn pause(&mut self, sound_id: SoundId) {
+        self.driver.send_event(MixerMessage::Pause(sound_id));
+    }
+
+    pub fn resume(&mut self, sound_id: SoundId) {
+        self.driver.send_event(MixerMessage::Resume(sound_id));
+    }
+
     pub fn frame(&mut self) {
         self.driver.frame();
     }
@@ -171,6 +182,7 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
                         ear: EarState::Left,
                         sample_rate_correction,
                         ticks: sample_rate_correction.ticks_pre_increment,
+                        is_playing: true,
                     },
                 );
             }
@@ -186,6 +198,7 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
                         ear: EarState::Left,
                         sample_rate_correction,
                         ticks: sample_rate_correction.ticks_pre_increment,
+                        is_playing: true,
                     },
                 );
             }
@@ -201,6 +214,16 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
             MixerMessage::Stop(id) => {
                 self.sounds.remove(&id);
             }
+            MixerMessage::Pause(id) => {
+                if let Some(sound) = self.sounds.get_mut(&id) {
+                    sound.is_playing = false;
+                }
+            },
+            MixerMessage::Resume(id) => {
+                if let Some(sound) = self.sounds.get_mut(&id) {
+                    sound.is_playing = true;
+                }
+            },
         }
     }
 
@@ -208,7 +231,7 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
         let mut value = 0.;
 
         for (sound_id, mut sound) in &mut self.sounds {
-            if self.ear != sound.ear {
+            if self.ear != sound.ear || !sound.is_playing {
                 continue;
             }
 

@@ -74,6 +74,26 @@ async fn main() {
                     println!("Progress for {:?}: {:?}", id, mixer.get_progress(id.clone()));
                 }
             }
+            
+            if widgets::Button::new("PAUSE")
+                .position(Vector2::new(5., 170.))
+                .size(Vector2::new(130., 17.))
+                .ui(ui)
+            {
+                for id in &sound_ids {
+                    mixer.pause(id.clone());
+                }
+            }
+
+            if widgets::Button::new("RESUME")
+                .position(Vector2::new(5., 200.))
+                .size(Vector2::new(130., 17.))
+                .ui(ui)
+            {
+                for id in &sound_ids {
+                    mixer.resume(id.clone());
+                }
+            }
         });
 
         mixer.frame();
