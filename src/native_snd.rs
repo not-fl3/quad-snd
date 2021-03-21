@@ -24,17 +24,17 @@ impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
     }
 
     pub fn get_sound_progress(&self, id: J) -> f32 {
-        let generator = & *(self.generator.lock().unwrap());
+        let generator = &*(self.generator.lock().unwrap());
 
         generator.get_sound_progress(id)
     }
 
     pub fn has_sound(&self, id: J) -> bool {
-        let generator = & *(self.generator.lock().unwrap());
+        let generator = &*(self.generator.lock().unwrap());
 
         generator.has_sound(id)
     }
-    
+
     /// Initialize the sound device and provide the generator to the driver.
     pub fn new(generator: Box<dyn SoundGenerator<T, J>>) -> Self {
         // Setup the audio system
@@ -90,8 +90,7 @@ impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
                     break;
                 }
             }
-            Err(_err) => {
-            }
+            Err(_err) => {}
         };
 
         let stream_id = match event_loop.build_output_stream(&device, &output_format) {
@@ -107,6 +106,8 @@ impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
                 };
             }
         };
+
+        println!("{:?}", output_format);
 
         Self {
             event_loop: Some(event_loop),
@@ -158,7 +159,7 @@ impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
 
                 evt.run(move |_stream_id, stream_result| {
                     let generator = &mut *(generator_clone.lock().unwrap());
-                    
+
                     for event in rx.try_iter() {
                         generator.handle_event(event);
                     }
