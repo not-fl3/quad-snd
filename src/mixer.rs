@@ -22,17 +22,17 @@ pub struct Sound {
     pub playback_style: PlaybackStyle,
 }
 impl Sound {
-    fn get_sample_rate_correction(&self) -> SampleRateCorrection {
+    fn get_sample_rate_correction(&self, target_sample_rate: usize) -> SampleRateCorrection {
         let sample_rate = self.sample_rate as usize;
-        let progress_increment_amount = if sample_rate > 44100 {
-            sample_rate / 44100
+        let progress_increment_amount = if sample_rate > target_sample_rate {
+            sample_rate / target_sample_rate
         } else {
             1
         } * self.channels as usize;
-        let ticks_pre_increment = if sample_rate >= 44100 {
+        let ticks_pre_increment = if sample_rate >= target_sample_rate {
             1
         } else {
-            44100 / sample_rate
+            target_sample_rate / sample_rate
         } * 2;
         SampleRateCorrection {
             progress_increment_amount,
@@ -136,7 +136,9 @@ impl SoundMixer {
         sound_id
     }
 
-    pub fn get_progress(&self, sound_id: SoundId) -> f32 { self.driver.get_sound_progress(sound_id) }
+    pub fn get_progress(&self, sound_id: SoundId) -> f32 {
+        self.driver.get_sound_progress(sound_id)
+    }
 
     pub fn set_volume(&mut self, sound_id: SoundId, volume: Volume) {
         self.driver
@@ -172,7 +174,8 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
     fn handle_event(&mut self, evt: MixerMessage) {
         match evt {
             MixerMessage::Play(id, sound) => {
-                let sample_rate_correction = sound.get_sample_rate_correction();
+                let sample_rate_correction =
+                    sound.get_sample_rate_correction(self.sample_rate as usize);
                 self.sounds.insert(
                     id,
                     SoundInternal {
@@ -188,7 +191,8 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
             }
             MixerMessage::PlayExt(id, sound, volume) => {
                 assert!(volume.0 <= 1.0);
-                let sample_rate_correction = sound.get_sample_rate_correction();
+                let sample_rate_correction =
+                    sound.get_sample_rate_correction(self.sample_rate as usize);
                 self.sounds.insert(
                     id,
                     SoundInternal {
@@ -218,12 +222,12 @@ impl SoundGenerator<MixerMessage, SoundId> for MixerInternal {
                 if let Some(sound) = self.sounds.get_mut(&id) {
                     sound.is_playing = false;
                 }
-            },
+            }
             MixerMessage::Resume(id) => {
                 if let Some(sound) = self.sounds.get_mut(&id) {
                     sound.is_playing = true;
                 }
-            },
+            }
         }
     }
 
