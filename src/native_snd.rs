@@ -107,8 +107,6 @@ impl<T: Send + 'static, J: Send + 'static> SoundDriver<T, J> {
             }
         };
 
-        println!("{:?}", output_format);
-
         Self {
             event_loop: Some(event_loop),
             format: Some(output_format),
