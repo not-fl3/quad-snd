@@ -1,49 +1,45 @@
+//! Loading and playing sounds.
+
+#![allow(warnings)]
+
+mod error;
+
+pub use error::Error;
+
+#[cfg(feature = "dummy_snd")]
+#[path = "dummy_snd.rs"]
+mod snd;
+
+#[cfg(target_os = "android")]
+#[cfg(not(feature = "dummy_snd"))]
+#[path = "opensles_snd.rs"]
+mod snd;
+
+#[cfg(target_os = "linux")]
+#[cfg(not(feature = "dummy_snd"))]
+#[path = "alsa_snd.rs"]
+mod snd;
+
 #[cfg(target_arch = "wasm32")]
+#[cfg(not(feature = "dummy_snd"))]
 #[path = "web_snd.rs"]
-pub mod snd;
+mod snd;
 
-#[cfg(not(target_arch = "wasm32"))]
-extern crate cpal;
+mod mixer;
 
-#[cfg(not(target_arch = "wasm32"))]
-#[path = "native_snd.rs"]
-pub mod snd;
-pub mod decoder;
-pub mod mixer;
+pub use snd::{AudioContext, Sound};
 
-pub use self::snd::*;
-
-#[derive(Debug, Clone, Copy)]
-/// error produced when creating the [`SoundDriver`]
-pub enum SoundError {
-    /// sound initialization was a success
-    NoError,
-    /// no sound device was found
-    NoDevice,
-    /// could not create an output stream
-    OutputStream,
-    /// unsupported output stream format
-    UnknownStreamFormat,
+pub struct PlaySoundParams {
+    pub looped: bool,
+    pub volume: f32,
 }
 
-/// You must provide a struct implementing this trait to the driver.
-///
-/// This is what generates the samples to be send to the audio output.
-pub trait SoundGenerator<T, J>: Send {
-    /// the sound driver calls this function during initialization to provide the audio interface sample rate.
-    fn init(&mut self, sample_rate: f32);
-    /// Because the sound generator runs in a separate thread on native target,
-    /// you can only communicate with it through events using [`SoundDriver::send_event`].
-    /// This is where you should handle those events.
-    fn handle_event(&mut self, evt: T);
-    /// This is the function generating the samples.
-    /// Remember this is stereo output, you have to generate samples alternatively for the left and right channels.
-    /// Sample values should be between -1.0 and 1.0.
-    fn next_value(&mut self) -> f32;
-
-    /// Returns the percentage of the sound played
-    fn get_sound_progress(&self, _id: J) -> f32 { 0.0 }
-
-    /// Whether or not the SoundGenerator contains a sound with the given id
-    fn has_sound(&self, _id: J) -> bool { false }
+impl Default for PlaySoundParams {
+    fn default() -> PlaySoundParams {
+        PlaySoundParams {
+            looped: false,
+            volume: 1.,
+        }
+    }
 }
+

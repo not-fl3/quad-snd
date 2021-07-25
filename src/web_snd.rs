@@ -1,114 +1,57 @@
-use super::{SoundError, SoundGenerator};
+use crate::audio::PlaySoundParams;
 
 extern "C" {
-    fn audio_init(buffer_size: u32) -> bool;
-    fn audio_current_time() -> f64;
-    fn audio_samples(buffer: *mut f32, audio_start: f64) -> f64;
-    fn audio_sample_rate() -> f64;
-    fn audio_pause_state() -> f64;
+    fn audio_init();
+    fn audio_add_buffer(content: *const u8, content_len: u32) -> u32;
+    fn audio_play_buffer(buffer: u32, volume_l: f32, volume_r: f32, speed: f32, repeat: bool);
+    fn audio_source_is_loaded(buffer: u32) -> bool;
+    fn audio_source_set_volume(buffer: u32, volume_l: f32, volume_r: f32);
+    fn audio_source_stop(buffer: u32);
 }
 
-pub struct SoundDriver<T, J> {
-    generator: Option<Box<dyn SoundGenerator<T, J>>>,
-    start_audio: f64,
-    buffer: [f32; BUFFER_SIZE as usize * 2],
-    err: SoundError,
+#[no_mangle]
+pub extern "C" fn macroquad_audio_crate_version() -> u32 {
+    let major = 0;
+    let minor = 1;
+    let patch = 0;
+
+    (major << 24) + (minor << 16) + patch
 }
 
-const BUFFER_SIZE: u32 = 2048;
-const AUDIO_LATENCY: f64 = 0.1;
+pub struct AudioContext;
 
-enum GameStatus {
-    Running,
-    Paused,
-    Resumed(f64),
+impl AudioContext {
+    pub fn new() -> AudioContext {
+        unsafe {
+            audio_init();
+        }
+
+        AudioContext
+    }
 }
 
-impl<T, J> SoundDriver<T, J> {
-    pub fn get_error(&self) -> SoundError {
-        self.err
+pub struct Sound(u32);
+
+impl Sound {
+    pub async fn load(data: &[u8]) -> Sound {
+        use crate::window::next_frame;
+
+        let buffer = unsafe { audio_add_buffer(data.as_ptr(), data.len() as u32) };
+        while unsafe { audio_source_is_loaded(buffer) } == false {
+            next_frame().await;
+        }
+        Sound(buffer)
     }
 
-    pub fn get_sound_progress(&self, id: J) -> f32 {
-        if let Some(generator) = &self.generator {
-            return generator.get_sound_progress(id);
-        }
-
-        0.0
+    pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) {
+        unsafe { audio_play_buffer(self.0, params.volume, params.volume, 1.0, params.looped) }
     }
 
-    pub fn has_sound(&self, id: J) -> bool {
-        if let Some(generator) = &self.generator {
-            return generator.has_sound(id);
-        }
-
-        false
+    pub fn stop(&mut self, _ctx: &mut AudioContext) {
+        unsafe { audio_source_stop(self.0) }
     }
 
-    pub fn new(generator: Box<dyn SoundGenerator<T, J>>) -> Self {
-        let success = unsafe { audio_init(BUFFER_SIZE) };
-
-        let err = if success == false {
-            SoundError::NoDevice
-        } else {
-            SoundError::NoError
-        };
-        Self {
-            generator: Some(generator),
-            start_audio: 0.0,
-            buffer: [0.0; BUFFER_SIZE as usize * 2],
-            err,
-        }
-    }
-    // -1 => game paused
-    // >0 => pause duration
-    fn get_pause_status(&self) -> GameStatus {
-        let value: f64 = unsafe { audio_pause_state() };
-
-        if value == 0.0 {
-            GameStatus::Running
-        } else {
-            if value == -1.0 {
-                GameStatus::Paused
-            } else {
-                GameStatus::Resumed(value)
-            }
-        }
-    }
-    pub fn send_event(&mut self, event: T) {
-        if let Some(ref mut gen) = self.generator {
-            gen.handle_event(event);
-        }
-    }
-    pub fn frame(&mut self) {
-        match self.get_pause_status() {
-            GameStatus::Paused => {
-                return;
-            }
-            GameStatus::Resumed(duration) => self.start_audio += duration,
-            GameStatus::Running => (),
-        }
-        let now: f64 = unsafe { audio_current_time() };
-        let now_latency = now + AUDIO_LATENCY;
-        if self.start_audio == 0.0 {
-            self.start_audio = now_latency;
-        }
-        if now >= self.start_audio - AUDIO_LATENCY {
-            if let Some(ref mut gen) = self.generator {
-                for i in 0..BUFFER_SIZE as usize * 2 {
-                    self.buffer[i] = gen.next_value();
-                }
-            }
-            let buffer_ptr = self.buffer.as_mut_ptr();
-            let start_audio = self.start_audio;
-            let samples: f64 = unsafe { audio_samples(buffer_ptr, start_audio) };
-            self.start_audio += samples;
-        }
-    }
-    pub fn start(&mut self) {
-        if let Some(ref mut gen) = self.generator {
-            let sample_rate: f64 = unsafe { audio_sample_rate() };
-            gen.init(sample_rate as f32);
-        }
+    pub fn set_volume(&mut self, _ctx: &mut AudioContext, volume: f32) {
+        unsafe { audio_source_set_volume(self.0, volume, volume) }
     }
 }

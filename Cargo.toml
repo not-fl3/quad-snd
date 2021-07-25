@@ -1,20 +1,18 @@
 [package]
 name = "quad-snd"
-version = "0.1.0-alpha.1"
-authors = ["not-fl3 <not.fl3@gmail.com>"]
-description = "Unrust low level native/wasm compatibility layer for sound output"
-license = "MIT"
-documentation = "https://docs.rs/quad-snd"
-repository = "https://github.com/not-fl3/quad-snd"
-keywords = ["sound", "wasm"]
+version = "0.1.0"
+authors = ["Fedor Logachev <not.fl3@gmail.com>"]
 edition = "2018"
 
-[dependencies]
-hound = "3.4"
-lewton = "0.10"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-cpal= "0.11.0"
+[features]
+dummy_snd = []
 
-[dev-dependencies]
-macroquad = "0.2.0-alpha.0"
+[target.'cfg(target_os = "android")'.dependencies]
+audir-sles = "0.1.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+alsa-sys = "*"
+libc = "*"
+audrey = { version = "0.3", default-features = false, features = ["wav", "ogg_vorbis"] }
