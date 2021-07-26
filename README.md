@@ -18,3 +18,13 @@ Biggest difference from any other sound library in rust:
 
 The only dependency is `audrey`. `audrey` helps backends that do not have file parsing functionality (all the platforms but web) to get bytes out of encoded .wav/.ogg. When web is not required - getting rid of `audrey` and use anything else(or nothingat all) for audio decoding is a super easy fix. 
 
+
+## Attribution
+
+While building `quad-snd` I looked into implementation of following libraries:
+
+https://github.com/floooh/sokol/blob/master/sokol_audio.h
+https://github.com/norse-rs/audir
+https://github.com/unrust/uni-snd
+
+
