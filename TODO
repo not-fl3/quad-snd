@@ -1,0 +1,6 @@
+- get rid of pkgconfig (it doesnt work on Fedora), just `-lasound` will work tho
+- fix play/pause on android
+- check if opensles still works
+- make AudioContext on linux/mac/windows/sles nicer
+- refactor AudioContext API, move play from Sound to Context
+- remove "*" from Cargo.toml

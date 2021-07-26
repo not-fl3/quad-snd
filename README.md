@@ -5,9 +5,9 @@ High-level, light-weight and opionated audio library.
 - [x] Web: WebAudio  
 - [x] Android: OpenSLES  
 - [x] Linux: Alsa  
-- [ ] Mac: AAudio  
-- [ ] Windows: Wasapi   
-- [ ] IOS: AAudio(?)  
+- [ ] Mac: CoreAudio  
+- [x] Windows: Wasapi   
+- [ ] IOS: CoreAudio(?)  
 
 Being high-level enough allows `quad-snd` to use very different approaches to each backend. For example, for WebAudio all the playback and mixing is based on Audio nodes, while in OpenSLES `quad-snd` is responsible for mixing.
 

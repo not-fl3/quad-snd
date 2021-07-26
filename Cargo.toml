@@ -6,13 +6,16 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-dummy_snd = []
-
 [target.'cfg(target_os = "android")'.dependencies]
 audir-sles = "0.1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+audrey = { version = "0.3", default-features = false, features = ["wav", "ogg_vorbis"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 alsa-sys = "*"
 libc = "*"
-audrey = { version = "0.3", default-features = false, features = ["wav", "ogg_vorbis"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3.8", features = ["debug", "ksmedia", "audioclient", "combaseapi", "coml2api", "devpkey", "handleapi", "mmdeviceapi", "objbase", "unknwnbase", "winerror", "synchapi", "winbase"] }
+

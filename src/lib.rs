@@ -6,22 +6,19 @@ mod error;
 
 pub use error::Error;
 
-#[cfg(feature = "dummy_snd")]
-#[path = "dummy_snd.rs"]
-mod snd;
-
 #[cfg(target_os = "android")]
-#[cfg(not(feature = "dummy_snd"))]
 #[path = "opensles_snd.rs"]
 mod snd;
 
 #[cfg(target_os = "linux")]
-#[cfg(not(feature = "dummy_snd"))]
 #[path = "alsa_snd.rs"]
 mod snd;
 
+#[cfg(target_os = "windows")]
+#[path = "wasapi_snd.rs"]
+mod snd;
+
 #[cfg(target_arch = "wasm32")]
-#[cfg(not(feature = "dummy_snd"))]
 #[path = "web_snd.rs"]
 mod snd;
 
@@ -42,4 +39,3 @@ impl Default for PlaySoundParams {
         }
     }
 }
-

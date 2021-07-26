@@ -1,3 +1,5 @@
+// roughly based on http://equalarea.com/paul/alsa-audio.html
+
 use crate::{error::Error, PlaySoundParams};
 
 use alsa_sys as sys;
@@ -98,51 +100,47 @@ where
     F: Fn(&mut T, &mut [f32], usize) + Send + 'static,
     T: Send + 'static,
 {
-    std::thread::spawn(move || {
-        let mut buffer: Vec<f32> = vec![0.0; consts::PCM_BUFFER_SIZE as usize * 2];
+    let mut buffer: Vec<f32> = vec![0.0; consts::PCM_BUFFER_SIZE as usize * 2];
 
-        let pcm_handle = setup_pcm_device();
+    let pcm_handle = setup_pcm_device();
 
-        loop {
-            // // find out how much space is available for playback data
-            // teoretically it should reduce latency - we will fill a minimum amount of
-            // frames just to keep alsa busy and will be able to mix some fresh sounds
-            // it does, but also randmly panics sometimes
+    loop {
+        // // find out how much space is available for playback data
+        // teoretically it should reduce latency - we will fill a minimum amount of
+        // frames just to keep alsa busy and will be able to mix some fresh sounds
+        // it does, but also randmly panics sometimes
 
-            // let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
-            // println!("{}", frames_to_deliver);
-            // let frames_to_deliver = if frames_to_deliver > consts::PCM_BUFFER_SIZE as _ {
-            //     consts::PCM_BUFFER_SIZE as i64
-            // } else {
-            //     frames_to_deliver
-            // };
+        // let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
+        // println!("{}", frames_to_deliver);
+        // let frames_to_deliver = if frames_to_deliver > consts::PCM_BUFFER_SIZE as _ {
+        //     consts::PCM_BUFFER_SIZE as i64
+        // } else {
+        //     frames_to_deliver
+        // };
 
-            let frames_to_deliver = consts::PCM_BUFFER_SIZE as i64;
+        let frames_to_deliver = consts::PCM_BUFFER_SIZE as i64;
 
-            // ask mixer to fill the buffer
-            stream_callback(&mut mixer_state, &mut buffer, frames_to_deliver as usize);
+        // ask mixer to fill the buffer
+        stream_callback(&mut mixer_state, &mut buffer, frames_to_deliver as usize);
 
-            // send filled buffer back to alsa
-            let frames_writen = sys::snd_pcm_writei(
-                pcm_handle,
-                buffer.as_ptr() as *const _,
-                frames_to_deliver as _,
-            );
-            if frames_writen == -libc::EPIPE as i64 {
-                println!("Underrun occured: -EPIPE, attempting recover");
+        // send filled buffer back to alsa
+        let frames_writen = sys::snd_pcm_writei(
+            pcm_handle,
+            buffer.as_ptr() as *const _,
+            frames_to_deliver as _,
+        );
+        if frames_writen == -libc::EPIPE as i64 {
+            println!("Underrun occured: -EPIPE, attempting recover");
 
-                sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
-            }
-
-            if frames_writen > 0 && frames_writen != frames_to_deliver as _ {
-                println!(
-                    "Underrun occured: frames_writen != frames_to_deliver, attempting recover"
-                );
-
-                sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
-            }
+            sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
         }
-    });
+
+        if frames_writen > 0 && frames_writen != frames_to_deliver as _ {
+            println!("Underrun occured: frames_writen != frames_to_deliver, attempting recover");
+
+            sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
+        }
+    }
 }
 
 pub struct AudioContext {
@@ -158,11 +156,11 @@ impl AudioContext {
         let (tx, rx) = mpsc::channel();
         let (tx1, rx1) = mpsc::channel();
 
-        unsafe {
+        std::thread::spawn(move || unsafe {
             audio_thread(Mixer::new(rx, rx1), |mixer, buffer, frames| {
                 mixer::fill_audio_buffer(buffer, frames, mixer)
             })
-        };
+        });
         AudioContext { tx, tx1, id: 0 }
     }
 }
