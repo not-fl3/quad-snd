@@ -5,7 +5,7 @@ High-level, light-weight and opionated audio library.
 - [x] Web: WebAudio  
 - [x] Android: OpenSLES  
 - [x] Linux: Alsa  
-- [ ] Mac: CoreAudio  
+- [x] Mac: CoreAudio  
 - [x] Windows: Wasapi   
 - [ ] IOS: CoreAudio(?)  
 
