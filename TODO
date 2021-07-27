@@ -1,9 +1,7 @@
-- get rid of pkgconfig (it doesnt work on Fedora), just `-lasound` will work tho
 - fix play/pause on android
 - check if opensles still works
 - make AudioContext on linux/mac/windows/sles nicer
 - refactor AudioContext API, move play from Sound to Context
-- remove "*" from Cargo.toml
 - add basic resampling to mixer (make sure that 1 channel/non-44100 files works fine)
 - fix wasm build
 - do all the deinitialisation code. It is missed in alsa/wasapi/coreaudio

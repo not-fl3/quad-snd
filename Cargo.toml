@@ -13,8 +13,8 @@ audir-sles = "0.1.0"
 audrey = { version = "0.3", default-features = false, features = ["wav", "ogg_vorbis"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-alsa-sys = "*"
-libc = "*"
+quad-alsa-sys = "0.3"
+libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.8", features = ["debug", "ksmedia", "audioclient", "combaseapi", "coml2api", "devpkey", "handleapi", "mmdeviceapi", "objbase", "unknwnbase", "winerror", "synchapi", "winbase"] }
