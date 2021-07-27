@@ -1,4 +1,4 @@
-use crate::audio::PlaySoundParams;
+use crate::PlaySoundParams;
 
 extern "C" {
     fn audio_init();

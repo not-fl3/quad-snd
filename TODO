@@ -4,3 +4,5 @@
 - make AudioContext on linux/mac/windows/sles nicer
 - refactor AudioContext API, move play from Sound to Context
 - remove "*" from Cargo.toml
+- add basic resampling to mixer (make sure that 1 channel/non-44100 files works fine)
+- fix wasm build

@@ -14,6 +14,10 @@ mod snd;
 #[path = "alsa_snd.rs"]
 mod snd;
 
+#[cfg(target_os = "macos")]
+#[path = "coreaudio_snd.rs"]
+mod snd;
+
 #[cfg(target_os = "windows")]
 #[path = "wasapi_snd.rs"]
 mod snd;
