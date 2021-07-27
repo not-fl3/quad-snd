@@ -95,11 +95,7 @@ unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
     pcm_handle
 }
 
-unsafe fn audio_thread<T, F>(mut mixer_state: T, stream_callback: F)
-where
-    F: Fn(&mut T, &mut [f32], usize) + Send + 'static,
-    T: Send + 'static,
-{
+unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
     let mut buffer: Vec<f32> = vec![0.0; consts::PCM_BUFFER_SIZE as usize * 2];
 
     let pcm_handle = setup_pcm_device();
@@ -121,7 +117,7 @@ where
         let frames_to_deliver = consts::PCM_BUFFER_SIZE as i64;
 
         // ask mixer to fill the buffer
-        stream_callback(&mut mixer_state, &mut buffer, frames_to_deliver as usize);
+        mixer.fill_audio_buffer(&mut buffer, frames_to_deliver as usize);
 
         // send filled buffer back to alsa
         let frames_writen = sys::snd_pcm_writei(
@@ -156,11 +152,7 @@ impl AudioContext {
         let (tx, rx) = mpsc::channel();
         let (tx1, rx1) = mpsc::channel();
 
-        std::thread::spawn(move || unsafe {
-            audio_thread(Mixer::new(rx, rx1), |mixer, buffer, frames| {
-                mixer::fill_audio_buffer(buffer, frames, mixer)
-            })
-        });
+        std::thread::spawn(move || unsafe { audio_thread(Mixer::new(rx, rx1)) });
         AudioContext { tx, tx1, id: 0 }
     }
 }

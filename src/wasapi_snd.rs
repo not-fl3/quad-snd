@@ -62,11 +62,7 @@ mod consts {
     pub const BUFFER_FRAMES: u32 = 4096;
 }
 
-unsafe fn audio_thread<T, F>(mut mixer_state: T, stream_callback: F)
-where
-    F: Fn(&mut T, &mut [f32], usize) + Send + 'static,
-    T: Send + 'static,
-{
+unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
     CoInitializeEx(std::ptr::null_mut(), COINIT_MULTITHREADED);
 
     let buffer_end_event = CreateEventA(std::ptr::null_mut(), FALSE, FALSE, std::ptr::null());
@@ -178,7 +174,7 @@ where
             num_frames as usize * consts::CHANNELS as usize,
         );
 
-        stream_callback(&mut mixer_state, buffer, num_frames as _);
+        mixer.fill_audio_buffer(buffer, num_frames as _);
 
         (*render_client).ReleaseBuffer(num_frames, 0);
     }
@@ -198,9 +194,7 @@ impl AudioContext {
         let (tx1, rx1) = mpsc::channel();
 
         std::thread::spawn(move || unsafe {
-            audio_thread(Mixer::new(rx, rx1), |mixer, buffer, frames| {
-                mixer::fill_audio_buffer(buffer, frames, mixer)
-            })
+            audio_thread(Mixer::new(rx, rx1));
         });
         AudioContext { tx, tx1, id: 0 }
     }
