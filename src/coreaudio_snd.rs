@@ -32,7 +32,8 @@ unsafe extern "C" fn saudio_coreaudio_callback(
     let mut mixer = &mut *(user_data as *mut crate::mixer::Mixer);
 
     let num_frames = (*buffer).mAudioDataByteSize / (2 * 4);
-    let buf = std::slice::from_raw_parts_mut((*buffer).mAudioData as *mut f32, num_frames as usize * 2);
+    let buf =
+        std::slice::from_raw_parts_mut((*buffer).mAudioData as *mut f32, num_frames as usize * 2);
 
     mixer.fill_audio_buffer(buf, num_frames as _);
 
