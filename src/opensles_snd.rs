@@ -1,4 +1,4 @@
-use crate::{audio::PlaySoundParams, logging::info};
+use crate::{mixer::AudioMessage, PlaySoundParams};
 
 use std::sync::mpsc;
 
@@ -9,8 +9,6 @@ mod opensles {
     use audir_sles as sles;
     use std::os::raw::c_void;
     use std::ptr;
-
-    use super::info;
 
     pub mod api {
         pub mod channel_mask {
@@ -141,10 +139,8 @@ mod opensles {
                 ptr::null(),
                 ptr::null_mut(),
             );
-            info!("sles::slCreateEngine: {:?}", result);
 
             let result = ((**instance).Realize).unwrap()(instance, sles::SL_BOOLEAN_FALSE as _);
-            info!("sles::instance::Realise: {:?}", result);
 
             let mut engine = ptr::null();
             ((**instance).GetInterface).unwrap()(
@@ -197,7 +193,7 @@ mod opensles {
                 let ids = [sles::SL_IID_BUFFERQUEUE];
                 let requirements = [sles::SL_BOOLEAN_TRUE];
 
-                let result = ((**self.engine).CreateAudioPlayer).unwrap()(
+                let _result = ((**self.engine).CreateAudioPlayer).unwrap()(
                     self.engine,
                     &mut audio_player,
                     &mut source,
@@ -206,7 +202,6 @@ mod opensles {
                     ids.as_ptr(),
                     requirements.as_ptr() as _,
                 );
-                info!("sles::engine::CreateAudioPlayer: {}", result);
             };
 
             let sles_channels = map_channel_mask(channels.output);
@@ -309,8 +304,7 @@ mod opensles {
                 }
             }
 
-            let result = (**queue).RegisterCallback.unwrap()(queue, Some(write_cb), data as _);
-            info!("sles::Queue::RegisterCallback: {:?}", result);
+            let _result = (**queue).RegisterCallback.unwrap()(queue, Some(write_cb), data as _);
 
             // Enqueue one frame to get the ball rolling
             write_cb(queue, data as _);
@@ -333,48 +327,29 @@ mod opensles {
         pub unsafe fn start(&self) {
             let result =
                 ((**self.state).SetPlayState).unwrap()(self.state, sles::SL_PLAYSTATE_PLAYING as _);
-
-            info!("Device::start {:?}", result);
         }
 
         #[allow(dead_code)]
         pub unsafe fn pause(&self) {
             let result =
                 ((**self.state).SetPlayState).unwrap()(self.state, sles::SL_PLAYSTATE_PAUSED as _);
-
-            info!("Device::pause {:?}", result);
         }
 
         #[allow(dead_code)]
         pub unsafe fn stop(&self) {
             let result =
                 ((**self.state).SetPlayState).unwrap()(self.state, sles::SL_PLAYSTATE_STOPPED as _);
-
-            info!("Device::stop {:?}", result);
         }
     }
 }
-unsafe fn audio_thread<T, F>(mut mixer_state: T, stream_callback: F)
-where
-    F: Fn(&mut T, &mut [f32], usize) + Send + 'static,
-    T: Send + 'static,
-{
+
+unsafe fn audio_thread(mut mixer: crate::mixer::Mixer, rx1: mpsc::Receiver<ControlMessage>) {
     use opensles::api::*;
 
     use std::collections::HashMap;
 
     let instance = opensles::Instance::new();
 
-    let mut sounds = HashMap::new();
-
-    struct SoundState {
-        id: usize,
-        sample: usize,
-        looped: bool,
-        volume: f32,
-        dead: bool,
-    }
-    let mut mixer_state: Vec<SoundState> = vec![];
     let device = instance
         .create_device(
             DeviceDesc {
@@ -396,7 +371,7 @@ where
                     stream.buffers.frames as usize * num_channels,
                 );
 
-                stream_callback(&mut mixer_state, buffer, buffer.len());
+                mixer.fill_audio_buffer(buffer, buffer.len());
             }),
         )
         .unwrap();
@@ -407,15 +382,18 @@ where
         let message = rx1.recv().unwrap();
         match message {
             ControlMessage::Pause => {
-                info!("opensles Pause active audio device");
                 device.pause();
             }
             ControlMessage::Resume => {
-                info!("opensles Start active audio device");
                 device.start();
             }
         }
     }
+}
+
+pub enum ControlMessage {
+    Pause,
+    Resume,
 }
 
 pub struct AudioContext {
@@ -429,7 +407,7 @@ impl AudioContext {
         let (tx, rx) = mpsc::channel();
         let (tx1, rx1) = mpsc::channel();
 
-        std::thread::spawn(move || unsafe { audio_thread(rx, rx1) });
+        std::thread::spawn(move || unsafe { audio_thread(crate::mixer::Mixer::new(rx), rx1) });
 
         AudioContext { tx, tx1, id: 1 }
     }
@@ -448,7 +426,7 @@ pub struct Sound {
 }
 
 impl Sound {
-    pub fn load(data: &[u8]) -> Sound {
+    pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
         let id = ctx.id;
 
         let mut audio_stream = {

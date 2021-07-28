@@ -182,7 +182,6 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
 
 pub struct AudioContext {
     tx: mpsc::Sender<crate::mixer::AudioMessage>,
-    tx1: mpsc::Sender<crate::mixer::ControlMessage>,
     id: usize,
 }
 
@@ -191,12 +190,11 @@ impl AudioContext {
         use crate::mixer::{self, Mixer};
 
         let (tx, rx) = mpsc::channel();
-        let (tx1, rx1) = mpsc::channel();
 
         std::thread::spawn(move || unsafe {
-            audio_thread(Mixer::new(rx, rx1));
+            audio_thread(Mixer::new(rx));
         });
-        AudioContext { tx, tx1, id: 0 }
+        AudioContext { tx, id: 0 }
     }
 }
 

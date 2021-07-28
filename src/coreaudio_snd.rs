@@ -21,7 +21,6 @@ mod consts {
 
 pub struct AudioContext {
     tx: mpsc::Sender<crate::mixer::AudioMessage>,
-    tx1: mpsc::Sender<crate::mixer::ControlMessage>,
     id: usize,
 }
 
@@ -45,9 +44,8 @@ impl AudioContext {
         use crate::mixer::{self, Mixer};
 
         let (tx, rx) = mpsc::channel();
-        let (tx1, rx1) = mpsc::channel();
 
-        let mixer = Box::new(Mixer::new(rx, rx1));
+        let mixer = Box::new(Mixer::new(rx));
 
         unsafe {
             let fmt = _saudio_AudioStreamBasicDescription {
@@ -95,7 +93,7 @@ impl AudioContext {
             assert!(res == 0);
         }
 
-        AudioContext { id: 0, tx, tx1 }
+        AudioContext { id: 0, tx }
     }
 }
 

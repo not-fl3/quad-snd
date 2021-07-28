@@ -10,11 +10,6 @@ pub enum AudioMessage {
     StopSound(usize),
 }
 
-pub enum ControlMessage {
-    Pause,
-    Resume,
-}
-
 #[derive(Debug)]
 pub struct SoundState {
     id: usize,
@@ -26,16 +21,14 @@ pub struct SoundState {
 
 pub struct Mixer {
     pub rx: mpsc::Receiver<AudioMessage>,
-    pub rx1: mpsc::Receiver<ControlMessage>,
     sounds: HashMap<usize, Vec<[f32; 2]>>,
     mixer_state: Vec<SoundState>,
 }
 
 impl Mixer {
-    pub fn new(rx: mpsc::Receiver<AudioMessage>, rx1: mpsc::Receiver<ControlMessage>) -> Mixer {
+    pub fn new(rx: mpsc::Receiver<AudioMessage>) -> Mixer {
         Mixer {
             rx,
-            rx1,
             sounds: HashMap::new(),
             mixer_state: vec![],
         }
