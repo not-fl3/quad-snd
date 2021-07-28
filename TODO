@@ -1,2 +1,0 @@
-- add basic resampling to mixer (make sure that 1 channel/non-44100 files works fine)
-- do all the deinitialisation code. It is missed in alsa/wasapi/coreaudio
