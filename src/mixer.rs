@@ -99,7 +99,7 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
         audrey::Reader::new(file).unwrap()
     };
 
-    let description = dbg!(audio_stream.description());
+    let description = audio_stream.description();
     let channels_count = description.channel_count();
     let sample_rate = description.sample_rate();
     assert!(channels_count == 1 || channels_count == 2);
