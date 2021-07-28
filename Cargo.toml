@@ -3,8 +3,8 @@ name = "quad-snd"
 version = "0.2.0"
 authors = ["Fedor Logachev <not.fl3@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT/Apache-2.0"
+description = "High level and cross platform audio library"
 
 [target.'cfg(target_os = "android")'.dependencies]
 audir-sles = "0.1.0"
