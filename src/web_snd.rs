@@ -33,14 +33,22 @@ impl AudioContext {
 pub struct Sound(u32);
 
 impl Sound {
-    pub async fn load(data: &[u8]) -> Sound {
-        use crate::window::next_frame;
-
+    pub fn load(_ctx: &mut AudioContext, data: &[u8]) -> Sound {
         let buffer = unsafe { audio_add_buffer(data.as_ptr(), data.len() as u32) };
-        while unsafe { audio_source_is_loaded(buffer) } == false {
-            next_frame().await;
-        }
         Sound(buffer)
+    }
+
+    /// WASM requirement - sound may be used only after it is is_loaded
+    /// something like will do:
+    ///```skip
+    /// let sound = Sound::load(&mut ctx, include_bytes!("test.wav"));
+    /// while sound.is_lodead() == false {
+    ///     next_frame().await;
+    /// }
+    /// sound.play(ctx, Default::default());
+    ///```
+    pub fn is_loaded(&self) -> bool {
+        unsafe { audio_source_is_loaded(self.0) }
     }
 
     pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) {
