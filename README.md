@@ -23,8 +23,8 @@ The only dependency is `audrey`. `audrey` helps backends that do not have file p
 
 While building `quad-snd` I looked into implementation of following libraries:
 
-https://github.com/floooh/sokol/blob/master/sokol_audio.h
-https://github.com/norse-rs/audir
-https://github.com/unrust/uni-snd
+https://github.com/floooh/sokol/blob/master/sokol_audio.h  
+https://github.com/norse-rs/audir  
+https://github.com/unrust/uni-snd  
 
 
