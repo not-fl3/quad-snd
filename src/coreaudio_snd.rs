@@ -106,14 +106,7 @@ impl Sound {
     pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
         let id = ctx.id;
 
-        let mut audio_stream = {
-            let file = std::io::Cursor::new(data);
-            audrey::Reader::new(file).unwrap()
-        };
-        let samples = audio_stream
-            .frames::<[f32; 2]>()
-            .map(std::result::Result::unwrap)
-            .collect::<Vec<_>>();
+        let samples = crate::mixer::load_samples_from_file(data).unwrap();
 
         ctx.tx
             .send(crate::mixer::AudioMessage::AddSound(id, samples))

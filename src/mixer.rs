@@ -91,3 +91,58 @@ impl Mixer {
         }
     }
 }
+
+/// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
+pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
+    let mut audio_stream = {
+        let file = std::io::Cursor::new(bytes);
+        audrey::Reader::new(file).unwrap()
+    };
+
+    let description = dbg!(audio_stream.description());
+    let channels_count = description.channel_count();
+    let sample_rate = description.sample_rate();
+    assert!(channels_count == 1 || channels_count == 2);
+
+    let mut frames: Vec<[f32; 2]> = vec![];
+    let mut samples_iterator = audio_stream
+        .samples::<f32>()
+        .map(std::result::Result::unwrap);
+
+    // audrey's frame docs: "TODO: Should consider changing this behaviour to check the audio file's actual number of channels and automatically convert to F's number of channels while reading".
+    // lets fix this TODO here
+    loop {
+        if channels_count == 1 {
+            if let Some(sample) = samples_iterator.next() {
+                frames.push([sample, sample]);
+            } else {
+                break;
+            };
+        }
+
+        if channels_count == 2 {
+            if let (Some(sample_left), Some(sample_right)) =
+                (samples_iterator.next(), samples_iterator.next())
+            {
+                frames.push([sample_left, sample_right]);
+            } else {
+                break;
+            };
+        }
+    }
+
+    // stupid nearest-neighbor resampler
+    if description.sample_rate() != 44100 {
+        let new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+
+        let mut resampled = vec![[0., 0.]; new_length];
+
+        for (n, i) in resampled.iter_mut().enumerate() {
+            let ix = ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
+            *i = frames[ix];
+        }
+        return Ok(resampled);
+    }
+
+    Ok(frames)
+}
