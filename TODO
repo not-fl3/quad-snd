@@ -1,4 +1,3 @@
-- fix play/pause on android
 - check if opensles still works
 - make AudioContext on linux/mac/windows/sles nicer
 - refactor AudioContext API, move play from Sound to Context

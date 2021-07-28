@@ -371,7 +371,7 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer, rx1: mpsc::Receiver<Contr
                     stream.buffers.frames as usize * num_channels,
                 );
 
-                mixer.fill_audio_buffer(buffer, buffer.len());
+                mixer.fill_audio_buffer(buffer, stream.buffers.frames as usize);
             }),
         )
         .unwrap();
