@@ -3,7 +3,7 @@ use crate::PlaySoundParams;
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-pub enum AudioMessage {
+enum AudioMessage {
     AddSound(usize, Vec<[f32; 2]>),
     PlaySound(usize, bool, f32),
     SetVolume(usize, f32),
@@ -20,18 +20,60 @@ pub struct SoundState {
 }
 
 pub struct Mixer {
-    pub rx: mpsc::Receiver<AudioMessage>,
+    rx: mpsc::Receiver<AudioMessage>,
     sounds: HashMap<usize, Vec<[f32; 2]>>,
     mixer_state: Vec<SoundState>,
 }
+pub struct MixerControl {
+    tx: mpsc::Sender<AudioMessage>,
+    id: usize,
+}
+
+impl MixerControl {
+    pub fn load(&mut self, data: &[u8]) -> usize {
+        let id = self.id;
+
+        let samples = load_samples_from_file(data).unwrap();
+
+        self.tx
+            .send(crate::mixer::AudioMessage::AddSound(id, samples))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+        self.id += 1;
+
+        id
+    }
+
+    pub fn play(&mut self, id: usize, params: PlaySoundParams) {
+        self.tx
+            .send(AudioMessage::PlaySound(id, params.looped, params.volume))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+    }
+
+    pub fn stop(&mut self, id: usize) {
+        self.tx
+            .send(AudioMessage::StopSound(id))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+    }
+
+    pub fn set_volume(&mut self, id: usize, volume: f32) {
+        self.tx
+            .send(AudioMessage::SetVolume(id, volume))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+    }
+}
 
 impl Mixer {
-    pub fn new(rx: mpsc::Receiver<AudioMessage>) -> Mixer {
-        Mixer {
-            rx,
-            sounds: HashMap::new(),
-            mixer_state: vec![],
-        }
+    pub fn new() -> (Mixer, MixerControl) {
+        let (tx, rx) = mpsc::channel();
+
+        (
+            Mixer {
+                rx,
+                sounds: HashMap::new(),
+                mixer_state: vec![],
+            },
+            MixerControl { tx, id: 0 },
+        )
     }
 
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {

@@ -1,4 +1,4 @@
-use crate::{mixer::AudioMessage, PlaySoundParams};
+use crate::PlaySoundParams;
 
 use std::sync::mpsc;
 
@@ -397,19 +397,22 @@ pub enum ControlMessage {
 }
 
 pub struct AudioContext {
-    tx: mpsc::Sender<AudioMessage>,
+    mixer_ctrl: crate::mixer::MixerControl,
     tx1: mpsc::Sender<ControlMessage>,
-    id: usize,
 }
 
 impl AudioContext {
     pub fn new() -> AudioContext {
-        let (tx, rx) = mpsc::channel();
+        use crate::mixer::Mixer;
+
         let (tx1, rx1) = mpsc::channel();
 
-        std::thread::spawn(move || unsafe { audio_thread(crate::mixer::Mixer::new(rx), rx1) });
+        let (mixer, mixer_ctrl) = Mixer::new();
+        std::thread::spawn(move || unsafe {
+            audio_thread(mixer, rx1);
+        });
 
-        AudioContext { tx, tx1, id: 1 }
+        AudioContext { mixer_ctrl, tx1 }
     }
 
     pub fn pause(&mut self) {
@@ -427,33 +430,20 @@ pub struct Sound {
 
 impl Sound {
     pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
-        let id = ctx.id;
-
-        let samples = crate::mixer::load_samples_from_file(data).unwrap();
-
-        ctx.tx.send(AudioMessage::AddSound(id, samples)).unwrap();
-        ctx.id += 1;
+        let id = ctx.mixer_ctrl.load(data);
 
         Sound { id }
     }
 
     pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) {
-        ctx.tx
-            .send(AudioMessage::PlaySound(
-                self.id,
-                params.looped,
-                params.volume,
-            ))
-            .unwrap();
+        ctx.mixer_ctrl.play(self.id, params);
     }
 
     pub fn stop(&mut self, ctx: &mut AudioContext) {
-        ctx.tx.send(AudioMessage::StopSound(self.id)).unwrap();
+        ctx.mixer_ctrl.stop(self.id);
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.tx
-            .send(AudioMessage::SetVolume(self.id, volume))
-            .unwrap();
+        ctx.mixer_ctrl.set_volume(self.id, volume);
     }
 }

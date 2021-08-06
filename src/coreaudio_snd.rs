@@ -20,8 +20,7 @@ mod consts {
 }
 
 pub struct AudioContext {
-    tx: mpsc::Sender<crate::mixer::AudioMessage>,
-    id: usize,
+    mixer_ctrl: crate::mixer::MixerControl,
 }
 
 unsafe extern "C" fn saudio_coreaudio_callback(
@@ -44,9 +43,8 @@ impl AudioContext {
     pub fn new() -> AudioContext {
         use crate::mixer::{self, Mixer};
 
-        let (tx, rx) = mpsc::channel();
-
-        let mixer = Box::new(Mixer::new(rx));
+        let (mixer, mixer_ctrl) = Mixer::new();
+        let mixer = Box::new(mixer);
 
         unsafe {
             let fmt = _saudio_AudioStreamBasicDescription {
@@ -94,7 +92,7 @@ impl AudioContext {
             assert!(res == 0);
         }
 
-        AudioContext { id: 0, tx }
+        AudioContext { mixer_ctrl }
     }
 }
 
@@ -104,37 +102,20 @@ pub struct Sound {
 
 impl Sound {
     pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
-        let id = ctx.id;
-
-        let samples = crate::mixer::load_samples_from_file(data).unwrap();
-
-        ctx.tx
-            .send(crate::mixer::AudioMessage::AddSound(id, samples))
-            .unwrap();
-        ctx.id += 1;
+        let id = ctx.mixer_ctrl.load(data);
 
         Sound { id }
     }
 
     pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) {
-        ctx.tx
-            .send(crate::mixer::AudioMessage::PlaySound(
-                self.id,
-                params.looped,
-                params.volume,
-            ))
-            .unwrap();
+        ctx.mixer_ctrl.play(self.id, params);
     }
 
     pub fn stop(&mut self, ctx: &mut AudioContext) {
-        ctx.tx
-            .send(crate::mixer::AudioMessage::StopSound(self.id))
-            .unwrap();
+        ctx.mixer_ctrl.stop(self.id);
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.tx
-            .send(crate::mixer::AudioMessage::SetVolume(self.id, volume))
-            .unwrap();
+        ctx.mixer_ctrl.set_volume(self.id, volume);
     }
 }
