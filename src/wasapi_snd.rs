@@ -163,6 +163,10 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
         }
         let num_frames = dst_buffer_frames - padding;
 
+        if num_frames == 0 {
+            continue;
+        }
+
         let mut wasapi_buffer: *mut u8 = std::ptr::null_mut();
         if (*render_client).GetBuffer(num_frames, &mut wasapi_buffer) < 0 {
             continue;
