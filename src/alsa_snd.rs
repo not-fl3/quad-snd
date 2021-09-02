@@ -10,7 +10,7 @@ mod consts {
     pub const DEVICE: &'static str = "default\0";
     pub const RATE: u32 = 44100;
     pub const CHANNELS: u32 = 2;
-    pub const PCM_BUFFER_SIZE: u64 = 4096;
+    pub const PCM_BUFFER_SIZE: ::std::os::raw::c_ulong = 4096;
 }
 
 unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
@@ -125,7 +125,7 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
             buffer.as_ptr() as *const _,
             frames_to_deliver as _,
         );
-        if frames_writen == -libc::EPIPE as i64 {
+        if frames_writen == -libc::EPIPE as ::std::os::raw::c_long {
             println!("Underrun occured: -EPIPE, attempting recover");
 
             sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
