@@ -14,7 +14,7 @@ mod snd;
 #[path = "alsa_snd.rs"]
 mod snd;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[path = "coreaudio_snd.rs"]
 mod snd;
 
