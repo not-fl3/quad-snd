@@ -8,11 +8,42 @@ function audio_init() {
         audio_context = new AudioContext();
         audio_listener = audio_context.listener;
 
-        // play empty sound to unlock context on iOS
-        let source = audio_context.createBufferSource();
-        source.buffer = audio_context.createBuffer(1, 1, 22050);
-        source.connect(audio_context.destination);
-        source.start(0);
+        // On Safari, audio context should be explicitly unpaused in an mouse/touch input event
+        // even if it was created after first input event on the page
+        // thanks to https://gist.github.com/kus/3f01d60569eeadefe3a1
+        {
+            audioContext = window.AudioContext || window.webkitAudioContext;
+            ctx = new audioContext();
+            var fixAudioContext = function (e) {
+                console.log("fix");
+
+                // Create empty buffer
+                var buffer = ctx.createBuffer(1, 1, 22050);
+                var source = ctx.createBufferSource();
+                source.buffer = buffer;
+                // Connect to output (speakers)
+                source.connect(ctx.destination);
+                // Play sound
+                if (source.start) {
+                    source.start(0);
+                } else if (source.play) {
+                    source.play(0);
+                } else if (source.noteOn) {
+                    source.noteOn(0);
+                }
+
+                // Remove events
+                document.removeEventListener('touchstart', fixAudioContext);
+                document.removeEventListener('touchend', fixAudioContext);
+                document.removeEventListener('mousedown', fixAudioContext);
+            };
+            // iOS 6-8
+            document.addEventListener('touchstart', fixAudioContext);
+            // iOS 9
+            document.addEventListener('touchend', fixAudioContext);
+
+            document.addEventListener('mousedown', fixAudioContext);
+        }
     }
 }
 
