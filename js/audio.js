@@ -8,14 +8,22 @@ function audio_init() {
         audio_context = new AudioContext();
         audio_listener = audio_context.listener;
 
-        // On Safari, audio context should be explicitly unpaused in an mouse/touch input event
-        // even if it was created after first input event on the page
-        // thanks to https://gist.github.com/kus/3f01d60569eeadefe3a1
         {
-            audioContext = window.AudioContext || window.webkitAudioContext;
+            let audioContext = window.AudioContext || window.webkitAudioContext;
             ctx = new audioContext();
             var fixAudioContext = function (e) {
                 console.log("fix");
+
+                // On newer Safari AudioContext starts in a suspended state per
+                // spec but is only resumable by a call running in an event
+                // handler triggered by the user. Do it here. Reference:
+                // https://stackoverflow.com/questions/56768576/safari-audiocontext-suspended-even-with-onclick-creation
+                audio_context.resume();
+
+                // On older Safari, audio context should be explicitly unpaused
+                // in a mouse/touch input event even if it was created after
+                // first input event on the page thanks to:
+                // https://gist.github.com/kus/3f01d60569eeadefe3a1
 
                 // Create empty buffer
                 var buffer = ctx.createBuffer(1, 1, 22050);
@@ -32,17 +40,19 @@ function audio_init() {
                     source.noteOn(0);
                 }
 
-                // Remove events
+                // Remove event handlers
                 document.removeEventListener('touchstart', fixAudioContext);
                 document.removeEventListener('touchend', fixAudioContext);
                 document.removeEventListener('mousedown', fixAudioContext);
+                document.removeEventListener('keydown', fixAudioContext);
             };
             // iOS 6-8
             document.addEventListener('touchstart', fixAudioContext);
             // iOS 9
             document.addEventListener('touchend', fixAudioContext);
-
+            // Mac
             document.addEventListener('mousedown', fixAudioContext);
+            document.addEventListener('keydown', fixAudioContext);
         }
     }
 }
