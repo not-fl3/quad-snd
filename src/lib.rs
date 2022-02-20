@@ -10,7 +10,7 @@ pub use error::Error;
 #[path = "opensles_snd.rs"]
 mod snd;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd"))]
 #[path = "alsa_snd.rs"]
 mod snd;
 
