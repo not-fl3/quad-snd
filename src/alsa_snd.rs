@@ -7,7 +7,7 @@ use quad_alsa_sys as sys;
 use std::sync::mpsc;
 
 mod consts {
-    pub const DEVICE: &'static str = "default\0";
+    pub const DEVICES: &[&str] = &["default\0", "pipewire\0"];
     pub const RATE: u32 = 44100;
     pub const CHANNELS: u32 = 2;
     pub const PCM_BUFFER_SIZE: ::std::os::raw::c_ulong = 4096;
@@ -17,13 +17,14 @@ unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
     let mut pcm_handle = std::ptr::null_mut();
 
     // Open the PCM device in playback mode
-    if sys::snd_pcm_open(
-        &mut pcm_handle,
-        consts::DEVICE.as_ptr() as _,
-        sys::SND_PCM_STREAM_PLAYBACK,
-        0,
-    ) < 0
-    {
+    if !consts::DEVICES.iter().any(|device| {
+        sys::snd_pcm_open(
+            &mut pcm_handle,
+            device.as_ptr() as _,
+            sys::SND_PCM_STREAM_PLAYBACK,
+            0,
+        ) >= 0
+    }) {
         panic!("Can't open PCM device.");
     }
 
