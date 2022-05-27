@@ -26,7 +26,7 @@ impl SoundState {
                 *sample
             }
             None if self.looped => {
-                self.sample = 0;
+                self.sample = 1;
                 *sound_data.first()?
             }
             None => return None,
