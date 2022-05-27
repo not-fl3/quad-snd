@@ -16,7 +16,27 @@ pub struct SoundState {
     sample: usize,
     looped: bool,
     volume: f32,
-    dead: bool,
+}
+
+impl SoundState {
+    fn next_sample(&mut self, sound_data: &[[f32; 2]]) -> Option<[f32; 2]> {
+        let mut sample = match sound_data.get(self.sample) {
+            Some(sample) => {
+                self.sample += 1;
+                *sample
+            }
+            None if self.looped => {
+                self.sample = 0;
+                *sound_data.first()?
+            }
+            None => return None,
+        };
+
+        sample[0] *= self.volume;
+        sample[1] *= self.volume;
+
+        Some(sample)
+    }
 }
 
 pub struct Mixer {
@@ -77,9 +97,7 @@ impl Mixer {
     }
 
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
-        let num_channels = 2;
-
-        if let Ok(message) = self.rx.try_recv() {
+        while let Ok(message) = self.rx.try_recv() {
             match message {
                 AudioMessage::AddSound(id, data) => {
                     self.sounds.insert(id, data);
@@ -94,7 +112,6 @@ impl Mixer {
                         sample: 0,
                         looped,
                         volume,
-                        dead: false,
                     });
                 }
                 AudioMessage::SetVolume(id, volume) => {
@@ -110,26 +127,41 @@ impl Mixer {
             }
         }
 
-        for dt in 0..frames as usize {
-            let mut value = [0.0, 0.0];
+        // zeroize the buffer
+        buffer.fill(0.0);
 
-            for sound in &mut self.mixer_state {
-                let sound_data = &self.sounds[&sound.id];
+        let buffer = {
+            assert!(buffer.len() >= frames * 2);
 
-                value[0] += sound_data[sound.sample][0] * sound.volume;
-                value[1] += sound_data[sound.sample][1] * sound.volume;
-                sound.sample = sound.sample + 1;
+            let ptr = buffer.as_mut_ptr() as *mut [f32; 2];
 
-                if sound.looped {
-                    sound.sample = sound.sample % sound_data.len();
-                } else if sound.sample >= sound_data.len() {
-                    sound.dead = true;
+            unsafe { std::slice::from_raw_parts_mut(ptr, frames) }
+        };
+
+        // Note: Doing manual iteration to facilitate backtrack
+        let mut i = 0;
+
+        while let Some(sound) = self.mixer_state.get_mut(i) {
+            let sound_data = &self.sounds[&sound.id][..];
+
+            i += 1;
+
+            for value in buffer.iter_mut() {
+                match sound.next_sample(sound_data) {
+                    Some(sample) => {
+                        value[0] += sample[0];
+                        value[1] += sample[1];
+                    }
+                    None => {
+                        // Decrement the count to remove current sound
+                        // and continue at sound swapped in
+                        i -= 1;
+
+                        self.mixer_state.swap_remove(i);
+                        break;
+                    }
                 }
             }
-            self.mixer_state.retain(|s| s.dead == false);
-
-            buffer[num_channels * dt as usize] = value[0];
-            buffer[num_channels * dt as usize + 1] = value[1];
         }
     }
 }
@@ -143,7 +175,6 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
 
     let description = audio_stream.description();
     let channels_count = description.channel_count();
-    let sample_rate = description.sample_rate();
     assert!(channels_count == 1 || channels_count == 2);
 
     let mut frames: Vec<[f32; 2]> = vec![];
@@ -173,11 +204,13 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
         }
     }
 
+    let sample_rate = description.sample_rate();
+
     // stupid nearest-neighbor resampler
-    if description.sample_rate() != 44100 {
+    if sample_rate != 44100 {
         let new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
 
-        let mut resampled = vec![[0., 0.]; new_length];
+        let mut resampled = vec![[0.0; 2]; new_length];
 
         for (n, i) in resampled.iter_mut().enumerate() {
             let ix = ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
