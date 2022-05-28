@@ -199,11 +199,14 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
 
     // stupid nearest-neighbor resampler
     if sample_rate != 44100 {
-        let new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+        let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+
+        // `new_length` must be an even number
+        new_length -= new_length % 2;
 
         let mut resampled = vec![0.0; new_length];
 
-        for (n, sample) in resampled.chunks_mut(2).enumerate() {
+        for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
             let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
             sample[0] = frames[ix];
             sample[1] = frames[ix + 1];
