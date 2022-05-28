@@ -158,7 +158,7 @@ impl AudioContext {
 }
 
 pub struct Sound {
-    id: usize,
+    id: u32,
 }
 
 impl Sound {
