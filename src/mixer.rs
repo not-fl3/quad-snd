@@ -14,28 +14,36 @@ enum AudioMessage {
 pub struct SoundState {
     id: usize,
     sample: usize,
+    // Note on safety: this borrows a `Vec` inside the `HashMap`.
+    // Moving the `Vec` inside the `HashMap` doesn't affect pointer,
+    // safety here at all, but we have to make sure to remove this
+    // `SoundState` before the `Vec` is removed.
+    data: *const [[f32; 2]],
     looped: bool,
     volume: f32,
 }
 
+unsafe impl Send for SoundState {}
+
 impl SoundState {
-    fn next_sample(&mut self, sound_data: &[[f32; 2]]) -> Option<[f32; 2]> {
-        let mut sample = match sound_data.get(self.sample) {
-            Some(sample) => {
-                self.sample += 1;
-                *sample
-            }
-            None if self.looped => {
-                self.sample = 1;
-                *sound_data.first()?
-            }
-            None => return None,
-        };
+    fn get_samples(&mut self, n: usize) -> &[[f32; 2]] {
+        let data = unsafe { &*self.data };
+        let data = &data[self.sample..];
 
-        sample[0] *= self.volume;
-        sample[1] *= self.volume;
+        self.sample += n;
 
-        Some(sample)
+        match data.get(..n) {
+            Some(data) => data,
+            None => data,
+        }
+    }
+
+    fn rewind(&mut self) {
+        self.sample = 0;
+    }
+
+    fn data(&self) -> &[[f32; 2]] {
+        unsafe { &*self.data }
     }
 }
 
@@ -103,16 +111,20 @@ impl Mixer {
                     self.sounds.insert(id, data);
                 }
                 AudioMessage::PlaySound(id, looped, volume) => {
-                    // this is not really correct, but mirrors how it works on wasm/pc
                     if let Some(old) = self.mixer_state.iter().position(|s| s.id == id) {
                         self.mixer_state.swap_remove(old);
                     }
-                    self.mixer_state.push(SoundState {
-                        id,
-                        sample: 0,
-                        looped,
-                        volume,
-                    });
+                    if let Some(data) = self.sounds.get(&id) {
+                        let data = &**data as *const _;
+
+                        self.mixer_state.push(SoundState {
+                            id,
+                            sample: 0,
+                            data,
+                            looped,
+                            volume,
+                        });
+                    }
                 }
                 AudioMessage::SetVolume(id, volume) => {
                     if let Some(old) = self.mixer_state.iter_mut().find(|s| s.id == id) {
@@ -138,29 +150,36 @@ impl Mixer {
             unsafe { std::slice::from_raw_parts_mut(ptr, frames) }
         };
 
-        // Note: Doing manual iteration to facilitate backtrack
+        // Note: Doing manual iteration so we can remove sounds that finished playing
         let mut i = 0;
 
         while let Some(sound) = self.mixer_state.get_mut(i) {
-            let sound_data = &self.sounds[&sound.id][..];
+            let volume = sound.volume;
+            let mut remove = false;
+            let mut remainder = buffer.len();
 
-            i += 1;
+            loop {
+                let samples = sound.get_samples(remainder);
 
-            for value in buffer.iter_mut() {
-                match sound.next_sample(sound_data) {
-                    Some(sample) => {
-                        value[0] += sample[0];
-                        value[1] += sample[1];
-                    }
-                    None => {
-                        // Decrement the count to remove current sound
-                        // and continue at sound swapped in
-                        i -= 1;
-
-                        self.mixer_state.swap_remove(i);
-                        break;
-                    }
+                for (b, s) in buffer.iter_mut().zip(samples) {
+                    b[0] += s[0] * volume;
+                    b[1] += s[1] * volume;
                 }
+
+                remainder -= samples.len();
+
+                if remainder > 0 && sound.looped {
+                    sound.rewind();
+                    continue;
+                }
+
+                break;
+            }
+
+            if remainder > 0 {
+                self.mixer_state.swap_remove(i);
+            } else {
+                i += 1;
             }
         }
     }
@@ -177,30 +196,20 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
     let channels_count = description.channel_count();
     assert!(channels_count == 1 || channels_count == 2);
 
-    let mut frames: Vec<[f32; 2]> = vec![];
+    let mut frames: Vec<[f32; 2]> = Vec::with_capacity(4096);
     let mut samples_iterator = audio_stream
         .samples::<f32>()
         .map(std::result::Result::unwrap);
 
     // audrey's frame docs: "TODO: Should consider changing this behaviour to check the audio file's actual number of channels and automatically convert to F's number of channels while reading".
     // lets fix this TODO here
-    loop {
-        if channels_count == 1 {
-            if let Some(sample) = samples_iterator.next() {
-                frames.push([sample, sample]);
-            } else {
-                break;
-            };
-        }
-
-        if channels_count == 2 {
-            if let (Some(sample_left), Some(sample_right)) =
-                (samples_iterator.next(), samples_iterator.next())
-            {
-                frames.push([sample_left, sample_right]);
-            } else {
-                break;
-            };
+    if channels_count == 1 {
+        frames.extend(samples_iterator.map(|sample| [sample, sample]));
+    } else if channels_count == 2 {
+        while let Some((sample_left, sample_right)) =
+            samples_iterator.next().zip(samples_iterator.next())
+        {
+            frames.push([sample_left, sample_right]);
         }
     }
 
