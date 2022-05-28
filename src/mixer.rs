@@ -14,10 +14,10 @@ enum AudioMessage {
 pub struct SoundState {
     id: usize,
     sample: usize,
-    // Note on safety: this borrows a `Vec` inside the `HashMap`.
-    // Moving the `Vec` inside the `HashMap` doesn't affect pointer,
+    // Note on safety: this borrows a `Vec` from inside the `HashMap`.
+    // Moving the `Vec` inside the `HashMap` doesn't affect pointer
     // safety here at all, but we have to make sure to remove this
-    // `SoundState` before the `Vec` is removed.
+    // `SoundState` before the `Vec` is removed in the future.
     data: *const [f32],
     looped: bool,
     volume: f32,
