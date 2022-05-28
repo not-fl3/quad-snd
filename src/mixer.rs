@@ -143,7 +143,6 @@ impl Mixer {
 
         while let Some(sound) = self.mixer_state.get_mut(i) {
             let volume = sound.volume;
-            let mut remove = false;
             let mut remainder = buffer.len();
 
             loop {
