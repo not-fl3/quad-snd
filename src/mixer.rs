@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::mpsc;
 
 enum AudioMessage {
-    AddSound(usize, Vec<[f32; 2]>),
+    AddSound(usize, Vec<f32>),
     PlaySound(usize, bool, f32),
     SetVolume(usize, f32),
     StopSound(usize),
@@ -18,7 +18,7 @@ pub struct SoundState {
     // Moving the `Vec` inside the `HashMap` doesn't affect pointer,
     // safety here at all, but we have to make sure to remove this
     // `SoundState` before the `Vec` is removed.
-    data: *const [[f32; 2]],
+    data: *const [f32],
     looped: bool,
     volume: f32,
 }
@@ -26,7 +26,7 @@ pub struct SoundState {
 unsafe impl Send for SoundState {}
 
 impl SoundState {
-    fn get_samples(&mut self, n: usize) -> &[[f32; 2]] {
+    fn get_samples(&mut self, n: usize) -> &[f32] {
         let data = unsafe { &*self.data };
         let data = &data[self.sample..];
 
@@ -41,15 +41,11 @@ impl SoundState {
     fn rewind(&mut self) {
         self.sample = 0;
     }
-
-    fn data(&self) -> &[[f32; 2]] {
-        unsafe { &*self.data }
-    }
 }
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<usize, Vec<[f32; 2]>>,
+    sounds: HashMap<usize, Vec<f32>>,
     mixer_state: Vec<SoundState>,
 }
 pub struct MixerControl {
@@ -115,7 +111,7 @@ impl Mixer {
                         self.mixer_state.swap_remove(old);
                     }
                     if let Some(data) = self.sounds.get(&id) {
-                        let data = &**data as *const _;
+                        let data = &**data;
 
                         self.mixer_state.push(SoundState {
                             id,
@@ -142,14 +138,6 @@ impl Mixer {
         // zeroize the buffer
         buffer.fill(0.0);
 
-        let buffer = {
-            assert!(buffer.len() >= frames * 2);
-
-            let ptr = buffer.as_mut_ptr() as *mut [f32; 2];
-
-            unsafe { std::slice::from_raw_parts_mut(ptr, frames) }
-        };
-
         // Note: Doing manual iteration so we can remove sounds that finished playing
         let mut i = 0;
 
@@ -162,8 +150,7 @@ impl Mixer {
                 let samples = sound.get_samples(remainder);
 
                 for (b, s) in buffer.iter_mut().zip(samples) {
-                    b[0] += s[0] * volume;
-                    b[1] += s[1] * volume;
+                    *b += s * volume;
                 }
 
                 remainder -= samples.len();
@@ -186,7 +173,7 @@ impl Mixer {
 }
 
 /// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
-pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
+pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
     let mut audio_stream = {
         let file = std::io::Cursor::new(bytes);
         audrey::Reader::new(file).unwrap()
@@ -196,7 +183,7 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
     let channels_count = description.channel_count();
     assert!(channels_count == 1 || channels_count == 2);
 
-    let mut frames: Vec<[f32; 2]> = Vec::with_capacity(4096);
+    let mut frames: Vec<f32> = Vec::with_capacity(4096);
     let mut samples_iterator = audio_stream
         .samples::<f32>()
         .map(std::result::Result::unwrap);
@@ -204,13 +191,9 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
     // audrey's frame docs: "TODO: Should consider changing this behaviour to check the audio file's actual number of channels and automatically convert to F's number of channels while reading".
     // lets fix this TODO here
     if channels_count == 1 {
-        frames.extend(samples_iterator.map(|sample| [sample, sample]));
+        frames.extend(samples_iterator.flat_map(|sample| [sample, sample]));
     } else if channels_count == 2 {
-        while let Some((sample_left, sample_right)) =
-            samples_iterator.next().zip(samples_iterator.next())
-        {
-            frames.push([sample_left, sample_right]);
-        }
+        frames.extend(samples_iterator);
     }
 
     let sample_rate = description.sample_rate();
@@ -219,11 +202,12 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
     if sample_rate != 44100 {
         let new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
 
-        let mut resampled = vec![[0.0; 2]; new_length];
+        let mut resampled = vec![0.0; new_length];
 
-        for (n, i) in resampled.iter_mut().enumerate() {
-            let ix = ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
-            *i = frames[ix];
+        for (n, sample) in resampled.chunks_mut(2).enumerate() {
+            let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
+            sample[0] = frames[ix];
+            sample[1] = frames[ix + 1];
         }
         return Ok(resampled);
     }
