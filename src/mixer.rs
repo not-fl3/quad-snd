@@ -20,8 +20,6 @@ pub struct SoundState {
     volume: f32,
 }
 
-unsafe impl Send for SoundState {}
-
 impl SoundState {
     fn get_samples(&mut self, n: usize) -> &[f32] {
         let data = &self.data[self.sample..];
