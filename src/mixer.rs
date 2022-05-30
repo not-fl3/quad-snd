@@ -195,8 +195,6 @@ impl Mixer {
             }
         }
 
-        let start = std::time::Instant::now();
-
         // zeroize the buffer
         buffer.fill(0.0);
 
@@ -230,12 +228,6 @@ impl Mixer {
                 i += 1;
             }
         }
-
-        println!(
-            "Mixed {} sounds in {:?}",
-            self.mixer_state.len(),
-            start.elapsed()
-        );
     }
 }
 

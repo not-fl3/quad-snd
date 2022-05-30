@@ -399,7 +399,7 @@ pub enum ControlMessage {
 }
 
 pub struct AudioContext {
-    mixer_ctrl: crate::mixer::MixerControl,
+    pub(crate) mixer_ctrl: crate::mixer::MixerControl,
     tx1: mpsc::Sender<ControlMessage>,
 }
 

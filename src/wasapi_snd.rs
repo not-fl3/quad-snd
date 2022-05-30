@@ -187,7 +187,7 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
 }
 
 pub struct AudioContext {
-    mixer_ctrl: crate::mixer::MixerControl,
+    pub(crate) mixer_ctrl: crate::mixer::MixerControl,
 }
 
 impl AudioContext {
