@@ -1,4 +1,4 @@
-use crate::PlaySoundParams;
+use crate::{PlaySoundParams, AudioContext};
 
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -59,6 +59,20 @@ pub struct MixerControl {
     play_id: u32,
 }
 
+pub struct Playback {
+    play_id: u32,
+}
+
+impl Playback {
+    pub fn stop(self, ctx: &mut AudioContext) {
+        ctx.mixer_ctrl.send(AudioMessage::Stop(self.play_id));
+    }
+
+    pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
+        ctx.mixer_ctrl.send(AudioMessage::SetVolume(self.play_id, volume));
+    }
+}
+
 impl MixerControl {
     pub fn load(&mut self, data: &[u8]) -> u32 {
         let sound_id = self.sound_id;
@@ -73,33 +87,35 @@ impl MixerControl {
         sound_id
     }
 
-    pub fn play(&mut self, sound_id: u32, params: PlaySoundParams) -> u32 {
+    pub fn play(&mut self, sound_id: u32, params: PlaySoundParams) -> Playback {
         let play_id = self.play_id;
 
-        self.tx
-            .send(AudioMessage::Play(
-                sound_id,
-                play_id,
-                params.looped,
-                params.volume,
-            ))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+        self.send(AudioMessage::Play(
+            sound_id,
+            play_id,
+            params.looped,
+            params.volume,
+        ));
 
         self.play_id += 1;
 
-        play_id
+        Playback { play_id }
     }
 
-    pub fn stop(&mut self, sound_id: u32) {
-        self.tx
-            .send(AudioMessage::StopAll(sound_id))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+    pub fn stop(&mut self, play_id: u32) {
+        self.send(AudioMessage::Stop(play_id));
     }
 
-    pub fn set_volume(&mut self, sound_id: u32, volume: f32) {
-        self.tx
-            .send(AudioMessage::SetVolumeAll(sound_id, volume))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+    pub fn stop_all(&mut self, sound_id: u32) {
+        self.send(AudioMessage::StopAll(sound_id));
+    }
+
+    pub fn set_volume_all(&mut self, sound_id: u32, volume: f32) {
+        self.send(AudioMessage::SetVolumeAll(sound_id, volume));
+    }
+
+    fn send(&mut self, message: AudioMessage) {
+        self.tx.send(message).unwrap_or_else(|_| println!("Audio thread died"))
     }
 }
 

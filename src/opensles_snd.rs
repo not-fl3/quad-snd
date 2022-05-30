@@ -2,6 +2,8 @@ use crate::PlaySoundParams;
 
 use std::sync::mpsc;
 
+pub use crate::mixer::Playback;
+
 // Slightly reduced OpenSLES implementation
 // from an amazing "audir" library: https://github.com/norse-rs/audir/
 // and a little bit of glue code to make it work with macroquad
@@ -435,15 +437,15 @@ impl Sound {
         Sound { id }
     }
 
-    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) {
-        ctx.mixer_ctrl.play(self.id, params);
+    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
+        ctx.mixer_ctrl.play(self.id, params)
     }
 
     pub fn stop(&mut self, ctx: &mut AudioContext) {
-        ctx.mixer_ctrl.stop(self.id);
+        ctx.mixer_ctrl.stop_all(self.id);
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.mixer_ctrl.set_volume(self.id, volume);
+        ctx.mixer_ctrl.set_volume_all(self.id, volume);
     }
 }

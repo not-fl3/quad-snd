@@ -29,7 +29,7 @@ mod snd;
 #[cfg(not(target_arch = "wasm32"))]
 mod mixer;
 
-pub use snd::{AudioContext, Sound};
+pub use snd::{AudioContext, Sound, Playback};
 
 pub struct PlaySoundParams {
     pub looped: bool,

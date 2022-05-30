@@ -3,6 +3,8 @@
 
 use crate::PlaySoundParams;
 
+pub use crate::mixer::Playback;
+
 use winapi::shared::guiddef::{CLSID, IID};
 use winapi::shared::ksmedia;
 use winapi::shared::minwindef::*;
@@ -212,15 +214,15 @@ impl Sound {
         Sound { id }
     }
 
-    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) {
-        ctx.mixer_ctrl.play(self.id, params);
+    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
+        ctx.mixer_ctrl.play(self.id, params)
     }
 
     pub fn stop(&mut self, ctx: &mut AudioContext) {
-        ctx.mixer_ctrl.stop(self.id);
+        ctx.mixer_ctrl.stop_all(self.id);
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.mixer_ctrl.set_volume(self.id, volume);
+        ctx.mixer_ctrl.set_volume_all(self.id, volume);
     }
 }
