@@ -3,7 +3,13 @@ use crate::PlaySoundParams;
 extern "C" {
     fn audio_init();
     fn audio_add_buffer(content: *const u8, content_len: u32) -> u32;
-    fn audio_play_buffer(buffer: u32, volume_l: f32, volume_r: f32, speed: f32, repeat: bool) -> u32;
+    fn audio_play_buffer(
+        buffer: u32,
+        volume_l: f32,
+        volume_r: f32,
+        speed: f32,
+        repeat: bool,
+    ) -> u32;
     fn audio_source_is_loaded(buffer: u32) -> bool;
     fn audio_source_set_volume(buffer: u32, volume_l: f32, volume_r: f32);
     fn audio_source_stop(buffer: u32);
@@ -66,7 +72,8 @@ impl Sound {
     }
 
     pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
-        let id = unsafe { audio_play_buffer(self.0, params.volume, params.volume, 1.0, params.looped) };
+        let id =
+            unsafe { audio_play_buffer(self.0, params.volume, params.volume, 1.0, params.looped) };
 
         Playback(id)
     }

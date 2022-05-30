@@ -45,8 +45,8 @@ impl AudioContext {
     pub fn new() -> AudioContext {
         use crate::mixer::{self, Mixer};
 
-        let (mixer, mixer_ctrl) = Mixer::new();
-        let mixer = Box::new(mixer);
+        let (mixer_builder, mixer_ctrl) = Mixer::new();
+        let mixer = Box::new(mixer_builder.build());
 
         unsafe {
             let fmt = _saudio_AudioStreamBasicDescription {

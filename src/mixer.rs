@@ -1,6 +1,7 @@
-use crate::{PlaySoundParams, AudioContext};
+use crate::{AudioContext, PlaySoundParams};
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::mpsc;
 
 enum AudioMessage {
@@ -18,21 +19,14 @@ pub struct SoundState {
     sound_id: u32,
     play_id: u32,
     sample: usize,
-    // Note on safety: this borrows a `Vec` from inside the `HashMap`.
-    // Moving the `Vec` inside the `HashMap` doesn't affect pointer
-    // safety here at all, but we have to make sure to remove this
-    // `SoundState` before the `Vec` is removed in the future.
-    data: *const [f32],
+    data: Rc<[f32]>,
     looped: bool,
     volume: f32,
 }
 
-unsafe impl Send for SoundState {}
-
 impl SoundState {
     fn get_samples(&mut self, n: usize) -> &[f32] {
-        let data = unsafe { &*self.data };
-        let data = &data[self.sample..];
+        let data = &self.data[self.sample..];
 
         self.sample += n;
 
@@ -49,8 +43,12 @@ impl SoundState {
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<u32, Vec<f32>>,
+    sounds: HashMap<u32, Rc<[f32]>>,
     mixer_state: Vec<SoundState>,
+}
+
+pub struct MixerBuilder {
+    rx: mpsc::Receiver<AudioMessage>,
 }
 
 pub struct MixerControl {
@@ -69,7 +67,8 @@ impl Playback {
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.mixer_ctrl.send(AudioMessage::SetVolume(self.play_id, volume));
+        ctx.mixer_ctrl
+            .send(AudioMessage::SetVolume(self.play_id, volume));
     }
 }
 
@@ -115,20 +114,28 @@ impl MixerControl {
     }
 
     fn send(&mut self, message: AudioMessage) {
-        self.tx.send(message).unwrap_or_else(|_| println!("Audio thread died"))
+        self.tx
+            .send(message)
+            .unwrap_or_else(|_| println!("Audio thread died"))
+    }
+}
+
+impl MixerBuilder {
+    pub fn build(self) -> Mixer {
+        Mixer {
+            rx: self.rx,
+            sounds: HashMap::new(),
+            mixer_state: vec![],
+        }
     }
 }
 
 impl Mixer {
-    pub fn new() -> (Mixer, MixerControl) {
+    pub fn new() -> (MixerBuilder, MixerControl) {
         let (tx, rx) = mpsc::channel();
 
         (
-            Mixer {
-                rx,
-                sounds: HashMap::new(),
-                mixer_state: vec![],
-            },
+            MixerBuilder { rx },
             MixerControl {
                 tx,
                 sound_id: 0,
@@ -141,17 +148,15 @@ impl Mixer {
         while let Ok(message) = self.rx.try_recv() {
             match message {
                 AudioMessage::AddSound(id, data) => {
-                    self.sounds.insert(id, data);
+                    self.sounds.insert(id, data.into());
                 }
                 AudioMessage::Play(sound_id, play_id, looped, volume) => {
                     if let Some(data) = self.sounds.get(&sound_id) {
-                        let data = &**data;
-
                         self.mixer_state.push(SoundState {
                             sound_id,
                             play_id,
                             sample: 0,
-                            data,
+                            data: data.clone(),
                             looped,
                             volume,
                         });
