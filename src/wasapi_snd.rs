@@ -192,9 +192,9 @@ impl AudioContext {
     pub fn new() -> AudioContext {
         use crate::mixer::Mixer;
 
-        let (mixer, mixer_ctrl) = Mixer::new();
+        let (mixer_builder, mixer_ctrl) = Mixer::new();
         std::thread::spawn(move || unsafe {
-            audio_thread(mixer);
+            audio_thread(mixer_builder.build());
         });
 
         AudioContext { mixer_ctrl }

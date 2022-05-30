@@ -2,6 +2,7 @@ use crate::PlaySoundParams;
 
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::rc::Rc;
 
 enum AudioMessage {
     AddSound(usize, Vec<f32>),
@@ -14,11 +15,7 @@ enum AudioMessage {
 pub struct SoundState {
     id: usize,
     sample: usize,
-    // Note on safety: this borrows a `Vec` from inside the `HashMap`.
-    // Moving the `Vec` inside the `HashMap` doesn't affect pointer
-    // safety here at all, but we have to make sure to remove this
-    // `SoundState` before the `Vec` is removed in the future.
-    data: *const [f32],
+    data: Rc<[f32]>,
     looped: bool,
     volume: f32,
 }
@@ -27,8 +24,7 @@ unsafe impl Send for SoundState {}
 
 impl SoundState {
     fn get_samples(&mut self, n: usize) -> &[f32] {
-        let data = unsafe { &*self.data };
-        let data = &data[self.sample..];
+        let data = &self.data[self.sample..];
 
         self.sample += n;
 
@@ -45,9 +41,14 @@ impl SoundState {
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<usize, Vec<f32>>,
+    sounds: HashMap<usize, Rc<[f32]>>,
     mixer_state: Vec<SoundState>,
 }
+
+pub struct MixerBuilder {
+    rx: mpsc::Receiver<AudioMessage>,
+}
+
 pub struct MixerControl {
     tx: mpsc::Sender<AudioMessage>,
     id: usize,
@@ -86,16 +87,22 @@ impl MixerControl {
     }
 }
 
+impl MixerBuilder {
+    pub fn build(self) -> Mixer {
+        Mixer {
+            rx: self.rx,
+            sounds: HashMap::new(),
+            mixer_state: vec![],
+        }
+    }
+}
+
 impl Mixer {
-    pub fn new() -> (Mixer, MixerControl) {
+    pub fn new() -> (MixerBuilder, MixerControl) {
         let (tx, rx) = mpsc::channel();
 
         (
-            Mixer {
-                rx,
-                sounds: HashMap::new(),
-                mixer_state: vec![],
-            },
+            MixerBuilder { rx },
             MixerControl { tx, id: 0 },
         )
     }
@@ -104,19 +111,17 @@ impl Mixer {
         while let Ok(message) = self.rx.try_recv() {
             match message {
                 AudioMessage::AddSound(id, data) => {
-                    self.sounds.insert(id, data);
+                    self.sounds.insert(id, data.into());
                 }
                 AudioMessage::PlaySound(id, looped, volume) => {
                     if let Some(old) = self.mixer_state.iter().position(|s| s.id == id) {
                         self.mixer_state.swap_remove(old);
                     }
                     if let Some(data) = self.sounds.get(&id) {
-                        let data = &**data;
-
                         self.mixer_state.push(SoundState {
                             id,
                             sample: 0,
-                            data,
+                            data: data.clone(),
                             looped,
                             volume,
                         });
