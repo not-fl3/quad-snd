@@ -1,8 +1,8 @@
 use crate::PlaySoundParams;
 
 use std::collections::HashMap;
-use std::sync::mpsc;
 use std::rc::Rc;
+use std::sync::mpsc;
 
 enum AudioMessage {
     AddSound(usize, Vec<f32>),
@@ -99,10 +99,7 @@ impl Mixer {
     pub fn new() -> (MixerBuilder, MixerControl) {
         let (tx, rx) = mpsc::channel();
 
-        (
-            MixerBuilder { rx },
-            MixerControl { tx, id: 0 },
-        )
+        (MixerBuilder { rx }, MixerControl { tx, id: 0 })
     }
 
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
