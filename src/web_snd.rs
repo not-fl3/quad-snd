@@ -3,10 +3,12 @@ use crate::PlaySoundParams;
 extern "C" {
     fn audio_init();
     fn audio_add_buffer(content: *const u8, content_len: u32) -> u32;
-    fn audio_play_buffer(buffer: u32, volume_l: f32, volume_r: f32, speed: f32, repeat: bool);
+    fn audio_play_buffer(buffer: u32, volume_l: f32, volume_r: f32, speed: f32, repeat: bool) -> u32;
     fn audio_source_is_loaded(buffer: u32) -> bool;
     fn audio_source_set_volume(buffer: u32, volume_l: f32, volume_r: f32);
     fn audio_source_stop(buffer: u32);
+    fn audio_playback_stop(playback: u32);
+    fn audio_playback_set_volume(playback: u32, volume_l: f32, volume_r: f32);
 }
 
 #[no_mangle]
@@ -36,11 +38,11 @@ pub struct Playback(u32);
 
 impl Playback {
     pub fn stop(self, _ctx: &mut AudioContext) {
-        // ctx.mixer_ctrl.send(AudioMessage::Stop(self.play_id));
+        unsafe { audio_playback_stop(self.0) }
     }
 
     pub fn set_volume(&mut self, _ctx: &mut AudioContext, volume: f32) {
-        // ctx.mixer_ctrl.send(AudioMessage::SetVolume(self.play_id, volume));
+        unsafe { audio_playback_set_volume(self.0, volume, volume) }
     }
 }
 
@@ -64,9 +66,9 @@ impl Sound {
     }
 
     pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
-        unsafe { audio_play_buffer(self.0, params.volume, params.volume, 1.0, params.looped) };
+        let id = unsafe { audio_play_buffer(self.0, params.volume, params.volume, 1.0, params.looped) };
 
-        Playback(0)
+        Playback(id)
     }
 
     pub fn stop(&mut self, _ctx: &mut AudioContext) {
