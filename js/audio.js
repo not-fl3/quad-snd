@@ -157,6 +157,12 @@ function audio_source_stop(sound_key) {
     });
 }
 
+function audio_source_delete(sound_key) {
+    audio_source_stop(sound_key);
+
+    sounds.delete(sound_key);
+}
+
 function audio_playback_stop(playback_key) {
     let playback = playbacks.find(playback => playback.playback_key === playback_key);
 
@@ -178,6 +184,7 @@ function register_plugin(importObject) {
     importObject.env.audio_source_is_loaded = audio_source_is_loaded;
     importObject.env.audio_source_set_volume = audio_source_set_volume;
     importObject.env.audio_source_stop = audio_source_stop;
+    importObject.env.audio_source_delete = audio_source_delete;
     importObject.env.audio_playback_stop = audio_playback_stop;
     importObject.env.audio_playback_set_volume = audio_playback_set_volume;
 }

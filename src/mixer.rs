@@ -113,6 +113,10 @@ impl MixerControl {
         self.send(AudioMessage::SetVolumeAll(sound_id, volume));
     }
 
+    pub fn delete(&mut self, sound_id: u32) {
+        self.send(AudioMessage::Delete(sound_id));
+    }
+
     fn send(&mut self, message: AudioMessage) {
         self.tx
             .send(message)

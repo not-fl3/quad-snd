@@ -120,4 +120,8 @@ impl Sound {
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
         ctx.mixer_ctrl.set_volume_all(self.id, volume);
     }
+
+    pub fn delete(&mut self, ctx: &mut AudioContext) {
+        ctx.mixer_ctrl.delete(self.sound_id);
+    }
 }

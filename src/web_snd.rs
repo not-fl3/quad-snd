@@ -7,6 +7,7 @@ extern "C" {
     fn audio_source_is_loaded(buffer: u32) -> bool;
     fn audio_source_set_volume(buffer: u32, volume: f32);
     fn audio_source_stop(buffer: u32);
+    fn audio_source_delete(buffer: u32);
     fn audio_playback_stop(playback: u32);
     fn audio_playback_set_volume(playback: u32, volume: f32);
 }
@@ -78,5 +79,9 @@ impl Sound {
 
     pub fn set_volume(&mut self, _ctx: &mut AudioContext, volume: f32) {
         unsafe { audio_source_set_volume(self.0, volume) }
+    }
+
+    pub fn delete(&mut self, _ctx: &mut AudioContext) {
+        unsafe { audio_source_delete(self.0) }
     }
 }
