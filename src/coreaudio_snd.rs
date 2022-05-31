@@ -103,25 +103,25 @@ pub struct Sound {
 }
 
 impl Sound {
-    pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
+    pub fn load(ctx: &AudioContext, data: &[u8]) -> Sound {
         let sound_id = ctx.mixer_ctrl.load(data);
 
         Sound { sound_id }
     }
 
-    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
+    pub fn play(&self, ctx: &AudioContext, params: PlaySoundParams) -> Playback {
         ctx.mixer_ctrl.play(self.sound_id, params)
     }
 
-    pub fn stop(&mut self, ctx: &mut AudioContext) {
+    pub fn stop(&self, ctx: &AudioContext) {
         ctx.mixer_ctrl.stop_all(self.sound_id);
     }
 
-    pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
+    pub fn set_volume(&self, ctx: &AudioContext, volume: f32) {
         ctx.mixer_ctrl.set_volume_all(self.sound_id, volume);
     }
 
-    pub fn delete(&mut self, ctx: &mut AudioContext) {
+    pub fn delete(&self, ctx: &AudioContext) {
         ctx.mixer_ctrl.delete(self.sound_id);
     }
 }

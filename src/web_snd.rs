@@ -38,17 +38,17 @@ pub struct Sound(u32);
 pub struct Playback(u32);
 
 impl Playback {
-    pub fn stop(self, _ctx: &mut AudioContext) {
+    pub fn stop(self, _ctx: &AudioContext) {
         unsafe { audio_playback_stop(self.0) }
     }
 
-    pub fn set_volume(&mut self, _ctx: &mut AudioContext, volume: f32) {
+    pub fn set_volume(&self, _ctx: &AudioContext, volume: f32) {
         unsafe { audio_playback_set_volume(self.0, volume) }
     }
 }
 
 impl Sound {
-    pub fn load(_ctx: &mut AudioContext, data: &[u8]) -> Sound {
+    pub fn load(_ctx: &AudioContext, data: &[u8]) -> Sound {
         let buffer = unsafe { audio_add_buffer(data.as_ptr(), data.len() as u32) };
         Sound(buffer)
     }
@@ -66,21 +66,21 @@ impl Sound {
         unsafe { audio_source_is_loaded(self.0) }
     }
 
-    pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
+    pub fn play(&self, _ctx: &AudioContext, params: PlaySoundParams) -> Playback {
         let id = unsafe { audio_play_buffer(self.0, params.volume, params.looped) };
 
         Playback(id)
     }
 
-    pub fn stop(&mut self, _ctx: &mut AudioContext) {
+    pub fn stop(&self, _ctx: &AudioContext) {
         unsafe { audio_source_stop(self.0) }
     }
 
-    pub fn set_volume(&mut self, _ctx: &mut AudioContext, volume: f32) {
+    pub fn set_volume(&self, _ctx: &AudioContext, volume: f32) {
         unsafe { audio_source_set_volume(self.0, volume) }
     }
 
-    pub fn delete(&mut self, _ctx: &mut AudioContext) {
+    pub fn delete(&self, _ctx: &AudioContext) {
         unsafe { audio_source_delete(self.0) }
     }
 }

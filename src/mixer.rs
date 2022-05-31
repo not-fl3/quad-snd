@@ -1,5 +1,6 @@
 use crate::{AudioContext, PlaySoundParams};
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc;
@@ -53,8 +54,8 @@ pub struct MixerBuilder {
 
 pub struct MixerControl {
     tx: mpsc::Sender<AudioMessage>,
-    sound_id: u32,
-    play_id: u32,
+    sound_id: Cell<u32>,
+    play_id: Cell<u32>,
 }
 
 pub struct Playback {
@@ -62,32 +63,32 @@ pub struct Playback {
 }
 
 impl Playback {
-    pub fn stop(self, ctx: &mut AudioContext) {
+    pub fn stop(self, ctx: &AudioContext) {
         ctx.mixer_ctrl.send(AudioMessage::Stop(self.play_id));
     }
 
-    pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
+    pub fn set_volume(&self, ctx: &AudioContext, volume: f32) {
         ctx.mixer_ctrl
             .send(AudioMessage::SetVolume(self.play_id, volume));
     }
 }
 
 impl MixerControl {
-    pub fn load(&mut self, data: &[u8]) -> u32 {
-        let sound_id = self.sound_id;
+    pub fn load(&self, data: &[u8]) -> u32 {
+        let sound_id = self.sound_id.get();
 
         let samples = load_samples_from_file(data).unwrap();
 
         self.tx
             .send(crate::mixer::AudioMessage::AddSound(sound_id, samples))
             .unwrap_or_else(|_| println!("Audio thread died"));
-        self.sound_id += 1;
+        self.sound_id.set(sound_id + 1);
 
         sound_id
     }
 
-    pub fn play(&mut self, sound_id: u32, params: PlaySoundParams) -> Playback {
-        let play_id = self.play_id;
+    pub fn play(&self, sound_id: u32, params: PlaySoundParams) -> Playback {
+        let play_id = self.play_id.get();
 
         self.send(AudioMessage::Play(
             sound_id,
@@ -96,28 +97,28 @@ impl MixerControl {
             params.volume,
         ));
 
-        self.play_id += 1;
+        self.play_id.set(play_id + 1);
 
         Playback { play_id }
     }
 
-    pub fn stop(&mut self, play_id: u32) {
+    pub fn stop(&self, play_id: u32) {
         self.send(AudioMessage::Stop(play_id));
     }
 
-    pub fn stop_all(&mut self, sound_id: u32) {
+    pub fn stop_all(&self, sound_id: u32) {
         self.send(AudioMessage::StopAll(sound_id));
     }
 
-    pub fn set_volume_all(&mut self, sound_id: u32, volume: f32) {
+    pub fn set_volume_all(&self, sound_id: u32, volume: f32) {
         self.send(AudioMessage::SetVolumeAll(sound_id, volume));
     }
 
-    pub fn delete(&mut self, sound_id: u32) {
+    pub fn delete(&self, sound_id: u32) {
         self.send(AudioMessage::Delete(sound_id));
     }
 
-    fn send(&mut self, message: AudioMessage) {
+    fn send(&self, message: AudioMessage) {
         self.tx
             .send(message)
             .unwrap_or_else(|_| println!("Audio thread died"))
@@ -142,8 +143,8 @@ impl Mixer {
             MixerBuilder { rx },
             MixerControl {
                 tx,
-                sound_id: 0,
-                play_id: 0,
+                sound_id: Cell::new(0),
+                play_id: Cell::new(0),
             },
         )
     }

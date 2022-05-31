@@ -11,9 +11,9 @@ impl AudioContext {
 pub struct Playback;
 
 impl Playback {
-    pub fn stop(self, _ctx: &mut AudioContext) {}
+    pub fn stop(self, _ctx: &AudioContext) {}
 
-    pub fn set_volume(&mut self, _ctx: &mut AudioContext) {}
+    pub fn set_volume(&self, _ctx: &AudioContext) {}
 }
 
 pub struct Sound;
@@ -23,13 +23,13 @@ impl Sound {
         Sound
     }
 
-    pub fn play(&mut self, _ctx: &mut AudioContext, _params: PlaySoundParams) -> Playback {
+    pub fn play(&self, _ctx: &AudioContext, _params: PlaySoundParams) -> Playback {
         Playback
     }
 
-    pub fn stop(&mut self, _ctx: &mut AudioContext) {}
+    pub fn stop(&self, _ctx: &AudioContext) {}
 
-    pub fn set_volume(&mut self, _ctx: &mut AudioContext, _volume: f32) {}
+    pub fn set_volume(&self, _ctx: &AudioContext, _volume: f32) {}
 
-    pub fn delete(&mut self, _ctx: &mut AudioContext) {}
+    pub fn delete(&self, _ctx: &AudioContext) {}
 }
