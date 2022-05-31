@@ -67,8 +67,7 @@ impl Sound {
     }
 
     pub fn play(&mut self, _ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
-        let id =
-            unsafe { audio_play_buffer(self.0, params.volume, params.looped) };
+        let id = unsafe { audio_play_buffer(self.0, params.volume, params.looped) };
 
         Playback(id)
     }
