@@ -90,9 +90,7 @@ function recycle_playback() {
             sound_key: 0,
             playback_key: 0,
             source: audio_context.createBufferSource(),
-            merger: audio_context.createChannelMerger(2),
-            gain_node_l: audio_context.createGain(),
-            gain_node_r: audio_context.createGain(),
+            gain_node: audio_context.createGain(),
             ended: null,
         };
 
@@ -107,9 +105,7 @@ function stop(playback) {
         playback.source.removeEventListener('ended', playback.ended);
 
         playback.source.disconnect();
-        playback.gain_node_l.disconnect();
-        playback.gain_node_r.disconnect();
-        playback.merger.disconnect();
+        playback.gain_node.disconnect();
 
         playback.sound_key = 0;
         playback.playback_key = 0;
@@ -118,7 +114,7 @@ function stop(playback) {
     }
 }
 
-function audio_play_buffer(sound_key, volume_l, volume_r, speed, repeat) {
+function audio_play_buffer(sound_key, volume, repeat) {
     let playback_key = playback_key_next++;
 
     let pb = recycle_playback();
@@ -126,16 +122,10 @@ function audio_play_buffer(sound_key, volume_l, volume_r, speed, repeat) {
     pb.sound_key = sound_key;
     pb.playback_key = playback_key;
 
-    pb.source.connect(pb.gain_node_l);
-    pb.source.connect(pb.gain_node_r);
-    pb.gain_node_l.connect(pb.merger, 0, 0);
-    pb.gain_node_r.connect(pb.merger, 0, 1);
-    pb.merger.connect(audio_context.destination);
+    pb.source.connect(pb.gain_node);
+    pb.gain_node.connect(audio_context.destination);
 
-    pb.gain_node_l.gain.value = volume_l;
-    pb.gain_node_r.gain.value = volume_r;
-
-    pb.source.playbackRate.value = speed;
+    pb.gain_node.gain.value = volume;
     pb.source.loop = repeat;
 
     pb.ended = function() {
@@ -153,11 +143,10 @@ function audio_play_buffer(sound_key, volume_l, volume_r, speed, repeat) {
     return playback_key;
 }
 
-function audio_source_set_volume(sound_key, volume_l, volume_r) {
+function audio_source_set_volume(sound_key, volume) {
     playbacks.forEach(playback => {
         if (playback.sound_key === sound_key) {
-            playback.gain_node_l.gain.value = volume_l;
-            playback.gain_node_r.gain.value = volume_r;
+            playback.gain_node.gain.value = volume;
         }
     });
 }
@@ -174,12 +163,11 @@ function audio_playback_stop(playback_key) {
     playback != null && stop(playback);
 }
 
-function audio_playback_set_volume(playback_key, volume_l, volume_r) {
+function audio_playback_set_volume(playback_key, volume) {
     let playback = playbacks.find(playback => playback.playback_key === playback_key);
 
     if (playback != null) {
-        playback.gain_node_l.gain.value = volume_l;
-        playback.gain_node_r.gain.value = volume_r;
+        playback.gain_node.gain.value = volume;
     }
 }
 
