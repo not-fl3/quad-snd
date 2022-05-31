@@ -1,10 +1,11 @@
 use crate::PlaySoundParams;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::mpsc;
 
 enum AudioMessage {
-    AddSound(usize, Vec<[f32; 2]>),
+    AddSound(usize, Vec<f32>),
     PlaySound(usize, bool, f32),
     SetVolume(usize, f32),
     StopSound(usize),
@@ -14,36 +15,38 @@ enum AudioMessage {
 pub struct SoundState {
     id: usize,
     sample: usize,
+    data: Rc<[f32]>,
     looped: bool,
     volume: f32,
 }
 
 impl SoundState {
-    fn next_sample(&mut self, sound_data: &[[f32; 2]]) -> Option<[f32; 2]> {
-        let mut sample = match sound_data.get(self.sample) {
-            Some(sample) => {
-                self.sample += 1;
-                *sample
-            }
-            None if self.looped => {
-                self.sample = 1;
-                *sound_data.first()?
-            }
-            None => return None,
-        };
+    fn get_samples(&mut self, n: usize) -> &[f32] {
+        let data = &self.data[self.sample..];
 
-        sample[0] *= self.volume;
-        sample[1] *= self.volume;
+        self.sample += n;
 
-        Some(sample)
+        match data.get(..n) {
+            Some(data) => data,
+            None => data,
+        }
+    }
+
+    fn rewind(&mut self) {
+        self.sample = 0;
     }
 }
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<usize, Vec<[f32; 2]>>,
+    sounds: HashMap<usize, Rc<[f32]>>,
     mixer_state: Vec<SoundState>,
 }
+
+pub struct MixerBuilder {
+    rx: mpsc::Receiver<AudioMessage>,
+}
+
 pub struct MixerControl {
     tx: mpsc::Sender<AudioMessage>,
     id: usize,
@@ -82,37 +85,42 @@ impl MixerControl {
     }
 }
 
+impl MixerBuilder {
+    pub fn build(self) -> Mixer {
+        Mixer {
+            rx: self.rx,
+            sounds: HashMap::new(),
+            mixer_state: vec![],
+        }
+    }
+}
+
 impl Mixer {
-    pub fn new() -> (Mixer, MixerControl) {
+    pub fn new() -> (MixerBuilder, MixerControl) {
         let (tx, rx) = mpsc::channel();
 
-        (
-            Mixer {
-                rx,
-                sounds: HashMap::new(),
-                mixer_state: vec![],
-            },
-            MixerControl { tx, id: 0 },
-        )
+        (MixerBuilder { rx }, MixerControl { tx, id: 0 })
     }
 
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
         while let Ok(message) = self.rx.try_recv() {
             match message {
                 AudioMessage::AddSound(id, data) => {
-                    self.sounds.insert(id, data);
+                    self.sounds.insert(id, data.into());
                 }
                 AudioMessage::PlaySound(id, looped, volume) => {
-                    // this is not really correct, but mirrors how it works on wasm/pc
                     if let Some(old) = self.mixer_state.iter().position(|s| s.id == id) {
                         self.mixer_state.swap_remove(old);
                     }
-                    self.mixer_state.push(SoundState {
-                        id,
-                        sample: 0,
-                        looped,
-                        volume,
-                    });
+                    if let Some(data) = self.sounds.get(&id) {
+                        self.mixer_state.push(SoundState {
+                            id,
+                            sample: 0,
+                            data: data.clone(),
+                            looped,
+                            volume,
+                        });
+                    }
                 }
                 AudioMessage::SetVolume(id, volume) => {
                     if let Some(old) = self.mixer_state.iter_mut().find(|s| s.id == id) {
@@ -130,44 +138,41 @@ impl Mixer {
         // zeroize the buffer
         buffer.fill(0.0);
 
-        let buffer = {
-            assert!(buffer.len() >= frames * 2);
-
-            let ptr = buffer.as_mut_ptr() as *mut [f32; 2];
-
-            unsafe { std::slice::from_raw_parts_mut(ptr, frames) }
-        };
-
-        // Note: Doing manual iteration to facilitate backtrack
+        // Note: Doing manual iteration so we can remove sounds that finished playing
         let mut i = 0;
 
         while let Some(sound) = self.mixer_state.get_mut(i) {
-            let sound_data = &self.sounds[&sound.id][..];
+            let volume = sound.volume;
+            let mut remainder = buffer.len();
 
-            i += 1;
+            loop {
+                let samples = sound.get_samples(remainder);
 
-            for value in buffer.iter_mut() {
-                match sound.next_sample(sound_data) {
-                    Some(sample) => {
-                        value[0] += sample[0];
-                        value[1] += sample[1];
-                    }
-                    None => {
-                        // Decrement the count to remove current sound
-                        // and continue at sound swapped in
-                        i -= 1;
-
-                        self.mixer_state.swap_remove(i);
-                        break;
-                    }
+                for (b, s) in buffer.iter_mut().zip(samples) {
+                    *b += s * volume;
                 }
+
+                remainder -= samples.len();
+
+                if remainder > 0 && sound.looped {
+                    sound.rewind();
+                    continue;
+                }
+
+                break;
+            }
+
+            if remainder > 0 {
+                self.mixer_state.swap_remove(i);
+            } else {
+                i += 1;
             }
         }
     }
 }
 
 /// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
-pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
+pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
     let mut audio_stream = {
         let file = std::io::Cursor::new(bytes);
         audrey::Reader::new(file).unwrap()
@@ -177,44 +182,34 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<[f32; 2]>, ()> {
     let channels_count = description.channel_count();
     assert!(channels_count == 1 || channels_count == 2);
 
-    let mut frames: Vec<[f32; 2]> = vec![];
+    let mut frames: Vec<f32> = Vec::with_capacity(4096);
     let mut samples_iterator = audio_stream
         .samples::<f32>()
         .map(std::result::Result::unwrap);
 
     // audrey's frame docs: "TODO: Should consider changing this behaviour to check the audio file's actual number of channels and automatically convert to F's number of channels while reading".
     // lets fix this TODO here
-    loop {
-        if channels_count == 1 {
-            if let Some(sample) = samples_iterator.next() {
-                frames.push([sample, sample]);
-            } else {
-                break;
-            };
-        }
-
-        if channels_count == 2 {
-            if let (Some(sample_left), Some(sample_right)) =
-                (samples_iterator.next(), samples_iterator.next())
-            {
-                frames.push([sample_left, sample_right]);
-            } else {
-                break;
-            };
-        }
+    if channels_count == 1 {
+        frames.extend(samples_iterator.flat_map(|sample| [sample, sample]));
+    } else if channels_count == 2 {
+        frames.extend(samples_iterator);
     }
 
     let sample_rate = description.sample_rate();
 
     // stupid nearest-neighbor resampler
     if sample_rate != 44100 {
-        let new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+        let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
 
-        let mut resampled = vec![[0.0; 2]; new_length];
+        // `new_length` must be an even number
+        new_length -= new_length % 2;
 
-        for (n, i) in resampled.iter_mut().enumerate() {
-            let ix = ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
-            *i = frames[ix];
+        let mut resampled = vec![0.0; new_length];
+
+        for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
+            let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
+            sample[0] = frames[ix];
+            sample[1] = frames[ix + 1];
         }
         return Ok(resampled);
     }

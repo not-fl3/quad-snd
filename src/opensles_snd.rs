@@ -407,9 +407,9 @@ impl AudioContext {
 
         let (tx1, rx1) = mpsc::channel();
 
-        let (mixer, mixer_ctrl) = Mixer::new();
+        let (mixer_builder, mixer_ctrl) = Mixer::new();
         std::thread::spawn(move || unsafe {
-            audio_thread(mixer, rx1);
+            audio_thread(mixer_builder.build(), rx1);
         });
 
         AudioContext { mixer_ctrl, tx1 }
