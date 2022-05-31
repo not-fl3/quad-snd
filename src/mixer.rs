@@ -1,19 +1,23 @@
-use crate::PlaySoundParams;
+use crate::{AudioContext, PlaySoundParams};
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::mpsc;
 
 enum AudioMessage {
-    AddSound(usize, Vec<f32>),
-    PlaySound(usize, bool, f32),
-    SetVolume(usize, f32),
-    StopSound(usize),
+    AddSound(u32, Vec<f32>),
+    Play(u32, u32, bool, f32),
+    Stop(u32),
+    StopAll(u32),
+    SetVolume(u32, f32),
+    SetVolumeAll(u32, f32),
+    Delete(u32),
 }
 
 #[derive(Debug)]
 pub struct SoundState {
-    id: usize,
+    sound_id: u32,
+    play_id: u32,
     sample: usize,
     data: Rc<[f32]>,
     looped: bool,
@@ -39,7 +43,7 @@ impl SoundState {
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<usize, Rc<[f32]>>,
+    sounds: HashMap<u32, Rc<[f32]>>,
     mixer_state: Vec<SoundState>,
 }
 
@@ -49,39 +53,74 @@ pub struct MixerBuilder {
 
 pub struct MixerControl {
     tx: mpsc::Sender<AudioMessage>,
-    id: usize,
+    sound_id: u32,
+    play_id: u32,
+}
+
+pub struct Playback {
+    play_id: u32,
+}
+
+impl Playback {
+    pub fn stop(self, ctx: &mut AudioContext) {
+        ctx.mixer_ctrl.send(AudioMessage::Stop(self.play_id));
+    }
+
+    pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
+        ctx.mixer_ctrl
+            .send(AudioMessage::SetVolume(self.play_id, volume));
+    }
 }
 
 impl MixerControl {
-    pub fn load(&mut self, data: &[u8]) -> usize {
-        let id = self.id;
+    pub fn load(&mut self, data: &[u8]) -> u32 {
+        let sound_id = self.sound_id;
 
         let samples = load_samples_from_file(data).unwrap();
 
         self.tx
-            .send(crate::mixer::AudioMessage::AddSound(id, samples))
+            .send(crate::mixer::AudioMessage::AddSound(sound_id, samples))
             .unwrap_or_else(|_| println!("Audio thread died"));
-        self.id += 1;
+        self.sound_id += 1;
 
-        id
+        sound_id
     }
 
-    pub fn play(&mut self, id: usize, params: PlaySoundParams) {
-        self.tx
-            .send(AudioMessage::PlaySound(id, params.looped, params.volume))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+    pub fn play(&mut self, sound_id: u32, params: PlaySoundParams) -> Playback {
+        let play_id = self.play_id;
+
+        self.send(AudioMessage::Play(
+            sound_id,
+            play_id,
+            params.looped,
+            params.volume,
+        ));
+
+        self.play_id += 1;
+
+        Playback { play_id }
     }
 
-    pub fn stop(&mut self, id: usize) {
-        self.tx
-            .send(AudioMessage::StopSound(id))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+    pub fn stop(&mut self, play_id: u32) {
+        self.send(AudioMessage::Stop(play_id));
     }
 
-    pub fn set_volume(&mut self, id: usize, volume: f32) {
+    pub fn stop_all(&mut self, sound_id: u32) {
+        self.send(AudioMessage::StopAll(sound_id));
+    }
+
+    pub fn set_volume_all(&mut self, sound_id: u32, volume: f32) {
+        self.send(AudioMessage::SetVolumeAll(sound_id, volume));
+    }
+
+    pub fn delete(&mut self, sound_id: u32) {
+        self.send(AudioMessage::Delete(sound_id));
+    }
+
+    fn send(&mut self, message: AudioMessage) {
         self.tx
-            .send(AudioMessage::SetVolume(id, volume))
-            .unwrap_or_else(|_| println!("Audio thread died"));
+            .send(message)
+            .unwrap_or_else(|_| println!("Audio thread died"))
     }
 }
 
@@ -99,7 +138,14 @@ impl Mixer {
     pub fn new() -> (MixerBuilder, MixerControl) {
         let (tx, rx) = mpsc::channel();
 
-        (MixerBuilder { rx }, MixerControl { tx, id: 0 })
+        (
+            MixerBuilder { rx },
+            MixerControl {
+                tx,
+                sound_id: 0,
+                play_id: 0,
+            },
+        )
     }
 
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
@@ -108,13 +154,11 @@ impl Mixer {
                 AudioMessage::AddSound(id, data) => {
                     self.sounds.insert(id, data.into());
                 }
-                AudioMessage::PlaySound(id, looped, volume) => {
-                    if let Some(old) = self.mixer_state.iter().position(|s| s.id == id) {
-                        self.mixer_state.swap_remove(old);
-                    }
-                    if let Some(data) = self.sounds.get(&id) {
+                AudioMessage::Play(sound_id, play_id, looped, volume) => {
+                    if let Some(data) = self.sounds.get(&sound_id) {
                         self.mixer_state.push(SoundState {
-                            id,
+                            sound_id,
+                            play_id,
                             sample: 0,
                             data: data.clone(),
                             looped,
@@ -122,15 +166,40 @@ impl Mixer {
                         });
                     }
                 }
-                AudioMessage::SetVolume(id, volume) => {
-                    if let Some(old) = self.mixer_state.iter_mut().find(|s| s.id == id) {
-                        old.volume = volume;
+                AudioMessage::Stop(play_id) => {
+                    if let Some(i) = self.mixer_state.iter().position(|s| s.play_id == play_id) {
+                        self.mixer_state.swap_remove(i);
                     }
                 }
-                AudioMessage::StopSound(id) => {
-                    if let Some(old) = self.mixer_state.iter().position(|s| s.id == id) {
-                        self.mixer_state.swap_remove(old);
+                AudioMessage::StopAll(sound_id) => {
+                    for i in (0..self.mixer_state.len()).rev() {
+                        if self.mixer_state[i].sound_id == sound_id {
+                            self.mixer_state.swap_remove(i);
+                        }
                     }
+                }
+                AudioMessage::SetVolume(play_id, volume) => {
+                    if let Some(sound) = self.mixer_state.iter_mut().find(|s| s.play_id == play_id)
+                    {
+                        sound.volume = volume;
+                    }
+                }
+                AudioMessage::SetVolumeAll(sound_id, volume) => {
+                    for sound in self
+                        .mixer_state
+                        .iter_mut()
+                        .filter(|s| s.sound_id == sound_id)
+                    {
+                        sound.volume = volume;
+                    }
+                }
+                AudioMessage::Delete(sound_id) => {
+                    for i in (0..self.mixer_state.len()).rev() {
+                        if self.mixer_state[i].sound_id == sound_id {
+                            self.mixer_state.swap_remove(i);
+                        }
+                    }
+                    self.sounds.remove(&sound_id);
                 }
             }
         }

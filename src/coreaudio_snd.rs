@@ -2,6 +2,8 @@ use crate::PlaySoundParams;
 
 use std::sync::mpsc;
 
+pub use crate::mixer::Playback;
+
 #[path = "coreaudio/coreaudio.rs"]
 mod coreaudio;
 
@@ -20,7 +22,7 @@ mod consts {
 }
 
 pub struct AudioContext {
-    mixer_ctrl: crate::mixer::MixerControl,
+    pub(crate) mixer_ctrl: crate::mixer::MixerControl,
 }
 
 unsafe extern "C" fn saudio_coreaudio_callback(
@@ -97,25 +99,29 @@ impl AudioContext {
 }
 
 pub struct Sound {
-    id: usize,
+    sound_id: u32,
 }
 
 impl Sound {
     pub fn load(ctx: &mut AudioContext, data: &[u8]) -> Sound {
-        let id = ctx.mixer_ctrl.load(data);
+        let sound_id = ctx.mixer_ctrl.load(data);
 
-        Sound { id }
+        Sound { sound_id }
     }
 
-    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) {
-        ctx.mixer_ctrl.play(self.id, params);
+    pub fn play(&mut self, ctx: &mut AudioContext, params: PlaySoundParams) -> Playback {
+        ctx.mixer_ctrl.play(self.sound_id, params)
     }
 
     pub fn stop(&mut self, ctx: &mut AudioContext) {
-        ctx.mixer_ctrl.stop(self.id);
+        ctx.mixer_ctrl.stop_all(self.sound_id);
     }
 
     pub fn set_volume(&mut self, ctx: &mut AudioContext, volume: f32) {
-        ctx.mixer_ctrl.set_volume(self.id, volume);
+        ctx.mixer_ctrl.set_volume_all(self.sound_id, volume);
+    }
+
+    pub fn delete(&mut self, ctx: &mut AudioContext) {
+        ctx.mixer_ctrl.delete(self.sound_id);
     }
 }
