@@ -104,6 +104,11 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
     let pcm_handle = setup_pcm_device();
 
     loop {
+        // Wait for PCM to be ready for next write (no timeout)
+        if sys::snd_pcm_wait(pcm_handle, -1) < 0 {
+            panic!("PCM device is not ready");
+        }
+
         // // find out how much space is available for playback data
         // teoretically it should reduce latency - we will fill a minimum amount of
         // frames just to keep alsa busy and will be able to mix some fresh sounds
