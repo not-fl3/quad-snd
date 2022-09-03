@@ -77,7 +77,7 @@ function audio_add_buffer(content, content_len) {
 }
 
 function audio_source_is_loaded(sound_key) {
-    return (sound_key in sounds) && sounds[sound_key].buffer != undefined;
+    return sounds.has(sound_key) && sounds.get(sound_key) != undefined;
 }
 
 function recycle_playback() {
