@@ -2,7 +2,7 @@ use crate::{AudioContext, PlaySoundParams};
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc;
 
 enum AudioMessage {
@@ -20,7 +20,7 @@ pub struct SoundState {
     sound_id: u32,
     play_id: u32,
     sample: usize,
-    data: Rc<[f32]>,
+    data: Arc<[f32]>,
     looped: bool,
     volume: f32,
 }
@@ -44,7 +44,7 @@ impl SoundState {
 
 pub struct Mixer {
     rx: mpsc::Receiver<AudioMessage>,
-    sounds: HashMap<u32, Rc<[f32]>>,
+    sounds: HashMap<u32, Arc<[f32]>>,
     mixer_state: Vec<SoundState>,
 }
 
