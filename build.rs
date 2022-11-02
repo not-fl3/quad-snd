@@ -1,5 +1,7 @@
 fn main() {
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+    let target = std::env::var("CARGO_CFG_TARGET_OS");
+
+    if target.as_deref() == Ok("macos") || target.as_deref() == Ok("ios") {
         println!("cargo:rustc-link-lib=framework=CoreAudio");
         println!("cargo:rustc-link-lib=framework=AudioToolbox");
     }
