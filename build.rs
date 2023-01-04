@@ -3,6 +3,6 @@ fn main() {
 
     if target.as_deref() == Ok("macos") || target.as_deref() == Ok("ios") {
         println!("cargo:rustc-link-lib=framework=CoreAudio");
-        println!("cargo:rustc-link-lib=framework=AudioToolbox");
+        println!("cargo:rustc-link-lib=framework=AudioToolBox");
     }
 }
