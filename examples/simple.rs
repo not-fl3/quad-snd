@@ -1,13 +1,12 @@
 use quad_snd::{AudioContext, Sound};
 
 fn main() {
-    let mut ctx = AudioContext::new();
-    //let mut sound = Sound::load(&mut ctx, include_bytes!("test.ogg"));
-    //let mut sound = Sound::load(&mut ctx, include_bytes!("test_96000.wav"));
-    //let mut sound = Sound::load(&mut ctx, include_bytes!("test_13000.wav"));
-    let mut sound = Sound::load(&mut ctx, include_bytes!("test_13000.wav"));
+    let ctx = AudioContext::new();
+    let sound_ogg = Sound::load(&ctx, include_bytes!("test.ogg"));
+    let sound_wav = Sound::load(&ctx, include_bytes!("test_13000.wav"));
 
-    sound.play(&mut ctx, Default::default());
+    sound_wav.play(&ctx, Default::default());
+    sound_ogg.play(&ctx, Default::default());
 
     loop {}
 }
