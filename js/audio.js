@@ -117,8 +117,6 @@ function stop(playback) {
 function audio_play_buffer(sound_key, volume, pitch, repeat) {
     let playback_key = playback_key_next++;
 
-    console.log("play pitch:", pitch);
-
     let pb = recycle_playback();
 
     pb.sound_key = sound_key;
