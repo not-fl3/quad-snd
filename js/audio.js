@@ -114,8 +114,10 @@ function stop(playback) {
     }
 }
 
-function audio_play_buffer(sound_key, volume, repeat) {
+function audio_play_buffer(sound_key, volume, pitch, repeat) {
     let playback_key = playback_key_next++;
+
+    console.log("play pitch:", pitch);
 
     let pb = recycle_playback();
 
@@ -177,6 +179,14 @@ function audio_playback_set_volume(playback_key, volume) {
     }
 }
 
+function audio_playback_set_pitch(playback_key, pitch) {
+    let playback = playbacks.find(playback => playback.playback_key === playback_key);
+
+    if (playback != null) {
+        console.log("audio_playback_set_pitch", pitch);
+    }
+}
+
 function register_plugin(importObject) {
     importObject.env.audio_init = audio_init;
     importObject.env.audio_add_buffer = audio_add_buffer;
@@ -187,6 +197,7 @@ function register_plugin(importObject) {
     importObject.env.audio_source_delete = audio_source_delete;
     importObject.env.audio_playback_stop = audio_playback_stop;
     importObject.env.audio_playback_set_volume = audio_playback_set_volume;
+    importObject.env.audio_playback_set_pitch = audio_playback_set_pitch;
 }
 
 miniquad_add_plugin({ register_plugin, version: "0.1.0", name: "macroquad_audio" });
