@@ -129,6 +129,7 @@ function audio_play_buffer(sound_key, volume, pitch, repeat) {
 
     pb.gain_node.gain.value = volume;
     pb.source.loop = repeat;
+    pb.source.playbackRate.value = pitch;
 
     pb.ended = function() {
         stop(pb);
@@ -183,7 +184,7 @@ function audio_playback_set_pitch(playback_key, pitch) {
     let playback = playbacks.find(playback => playback.playback_key === playback_key);
 
     if (playback != null) {
-        console.log("audio_playback_set_pitch", pitch);
+        playback.source.playbackRate.value = pitch;
     }
 }
 

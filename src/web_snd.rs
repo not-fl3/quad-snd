@@ -46,6 +46,10 @@ impl Playback {
     pub fn set_volume(&self, _ctx: &AudioContext, volume: f32) {
         unsafe { audio_playback_set_volume(self.0, volume) }
     }
+
+    pub fn set_pitch(&self, _ctx: &AudioContext, pitch: f32) {
+        unsafe { audio_playback_set_pitch(self.0, pitch) }
+    }
 }
 
 impl Sound {
@@ -79,10 +83,6 @@ impl Sound {
 
     pub fn set_volume(&self, _ctx: &AudioContext, volume: f32) {
         unsafe { audio_source_set_volume(self.0, volume) }
-    }
-
-    pub fn set_pitch(&self, _ctx: &AudioContext, pitch: f32) {
-        unsafe { audio_source_set_pitch(self.0, pitch) }
     }
 
     pub fn delete(&self, _ctx: &AudioContext) {

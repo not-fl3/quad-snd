@@ -228,9 +228,9 @@ impl Mixer {
 
             loop {
 
-                let samples = sound.get_samples(((remainder as f32) * pitch) as usize);
+                let samples = sound.get_samples((remainder as f32 * pitch).ceil() as usize);
 
-                let len = (samples.len() as f32 / pitch).ceil() as usize;
+                let len = usize::min((samples.len() as f32 / pitch) as usize, remainder);
 
                 let mut sample_index = 0.;
                 for i in 0..len {
