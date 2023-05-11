@@ -272,7 +272,7 @@ impl Mixer {
 
 /// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
 pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
-        let mut audio_stream = {
+    let mut audio_stream = {
         let file = std::io::Cursor::new(bytes);
         audrey::Reader::new(file).unwrap()
     };
