@@ -227,15 +227,28 @@ impl Mixer {
             let mut remainder = buffer.len();
 
             loop {
+                let req = (remainder as f32 * pitch).ceil() as usize + 1;
+                let samples = sound.get_samples(req);
 
-                let samples = sound.get_samples((remainder as f32 * pitch).ceil() as usize);
+                let mut len = remainder;
+                if samples.len() != req {
+                    if pitch <= 1. {
+                        len = samples.len() -1;
+                    }
+                    else{
+                        len = (samples.len() as f32 / pitch) as usize;
+                   }
+                }
 
-                let len = usize::min((samples.len() as f32 / pitch) as usize, remainder);
-
-                let mut sample_index = 0.;
+                let mut sample_position = 0.;
                 for i in 0..len {
-                    buffer[i] += samples[sample_index as usize] * volume;
-                    sample_index += pitch;
+                    let sample_index = sample_position as usize;
+                    let sample1 = samples[sample_index];
+                    let sample2 = samples[sample_index + 1];
+                    let sample_lerp = sample1 + f32::fract(sample_position) * (sample2 - sample1);
+                    buffer[i] += sample_lerp * volume;
+
+                    sample_position += pitch;
                 }
 
                 remainder -= len;
@@ -259,7 +272,7 @@ impl Mixer {
 
 /// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
 pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
-    let mut audio_stream = {
+        let mut audio_stream = {
         let file = std::io::Cursor::new(bytes);
         audrey::Reader::new(file).unwrap()
     };
