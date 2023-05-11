@@ -7,10 +7,11 @@ use std::sync::mpsc;
 
 enum AudioMessage {
     AddSound(u32, Vec<f32>),
-    Play(u32, u32, bool, f32),
+    Play(u32, u32, bool, f32, f32),
     Stop(u32),
     StopAll(u32),
     SetVolume(u32, f32),
+    SetPitch(u32, f32),
     SetVolumeAll(u32, f32),
     Delete(u32),
 }
@@ -23,6 +24,7 @@ pub struct SoundState {
     data: Arc<[f32]>,
     looped: bool,
     volume: f32,
+    pitch: f32,
 }
 
 impl SoundState {
@@ -95,6 +97,7 @@ impl MixerControl {
             play_id,
             params.looped,
             params.volume,
+            params.pitch,
         ));
 
         self.play_id.set(play_id + 1);
@@ -155,7 +158,7 @@ impl Mixer {
                 AudioMessage::AddSound(id, data) => {
                     self.sounds.insert(id, data.into());
                 }
-                AudioMessage::Play(sound_id, play_id, looped, volume) => {
+                AudioMessage::Play(sound_id, play_id, looped, volume, pitch) => {
                     if let Some(data) = self.sounds.get(&sound_id) {
                         self.mixer_state.push(SoundState {
                             sound_id,
@@ -164,6 +167,7 @@ impl Mixer {
                             data: data.clone(),
                             looped,
                             volume,
+                            pitch,
                         });
                     }
                 }
@@ -194,6 +198,12 @@ impl Mixer {
                         sound.volume = volume;
                     }
                 }
+                AudioMessage::SetPitch(play_id, pitch) => {
+                    if let Some(sound) = self.mixer_state.iter_mut().find(|s| s.play_id == play_id)
+                    {
+                        sound.pitch = pitch;
+                    }
+                }
                 AudioMessage::Delete(sound_id) => {
                     for i in (0..self.mixer_state.len()).rev() {
                         if self.mixer_state[i].sound_id == sound_id {
@@ -212,17 +222,36 @@ impl Mixer {
         let mut i = 0;
 
         while let Some(sound) = self.mixer_state.get_mut(i) {
+            let pitch = sound.pitch;
             let volume = sound.volume;
             let mut remainder = buffer.len();
 
             loop {
-                let samples = sound.get_samples(remainder);
+                let req = (remainder as f32 * pitch).ceil() as usize + 1;
+                let samples = sound.get_samples(req);
 
-                for (b, s) in buffer.iter_mut().zip(samples) {
-                    *b += s * volume;
+                let mut len = remainder;
+                if samples.len() != req {
+                    if pitch <= 1. {
+                        len = samples.len() -1;
+                    }
+                    else{
+                        len = (samples.len() as f32 / pitch) as usize;
+                   }
                 }
 
-                remainder -= samples.len();
+                let mut sample_position = 0.;
+                for i in 0..len {
+                    let sample_index = sample_position as usize;
+                    let sample1 = samples[sample_index];
+                    let sample2 = samples[sample_index + 1];
+                    let sample_lerp = sample1 + f32::fract(sample_position) * (sample2 - sample1);
+                    buffer[i] += sample_lerp * volume;
+
+                    sample_position += pitch;
+                }
+
+                remainder -= len;
 
                 if remainder > 0 && sound.looped {
                     sound.rewind();

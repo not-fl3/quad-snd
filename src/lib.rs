@@ -34,6 +34,7 @@ pub use snd::{AudioContext, Playback, Sound};
 pub struct PlaySoundParams {
     pub looped: bool,
     pub volume: f32,
+    pub pitch: f32,
 }
 
 impl Default for PlaySoundParams {
@@ -41,6 +42,7 @@ impl Default for PlaySoundParams {
         PlaySoundParams {
             looped: false,
             volume: 1.,
+            pitch: 1.,
         }
     }
 }
