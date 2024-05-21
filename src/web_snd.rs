@@ -14,11 +14,7 @@ extern "C" {
 
 #[no_mangle]
 pub extern "C" fn macroquad_audio_crate_version() -> u32 {
-    let major = 0;
-    let minor = 1;
-    let patch = 0;
-
-    (major << 24) + (minor << 16) + patch
+    1
 }
 
 pub struct AudioContext;
