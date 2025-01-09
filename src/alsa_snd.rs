@@ -109,23 +109,24 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
             panic!("PCM device is not ready");
         }
 
-        // // find out how much space is available for playback data
+        // find out how much space is available for playback data
         // teoretically it should reduce latency - we will fill a minimum amount of
         // frames just to keep alsa busy and will be able to mix some fresh sounds
-        // it does, but also randmly panics sometimes
 
-        // let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
-        // println!("{}", frames_to_deliver);
-        // let frames_to_deliver = if frames_to_deliver > consts::PCM_BUFFER_SIZE as _ {
-        //     consts::PCM_BUFFER_SIZE as i64
-        // } else {
-        //     frames_to_deliver
-        // };
+        let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
+        let frames_to_deliver = if frames_to_deliver > consts::PCM_BUFFER_SIZE as _ {
+            consts::PCM_BUFFER_SIZE as i64
+        } else {
+            frames_to_deliver
+        };
 
-        let frames_to_deliver = consts::PCM_BUFFER_SIZE as i64;
+        let buffer = std::slice::from_raw_parts_mut(
+            buffer.as_mut_ptr(),
+            frames_to_deliver as usize * consts::CHANNELS as usize,
+        );
 
         // ask mixer to fill the buffer
-        mixer.fill_audio_buffer(&mut buffer, frames_to_deliver as usize);
+        mixer.fill_audio_buffer(buffer, frames_to_deliver as usize);
 
         // send filled buffer back to alsa
         let frames_writen = sys::snd_pcm_writei(
