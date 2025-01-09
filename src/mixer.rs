@@ -2,8 +2,8 @@ use crate::{AudioContext, PlaySoundParams};
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::mpsc;
+use std::sync::Arc;
 
 enum AudioMessage {
     AddSound(u32, Vec<f32>),
