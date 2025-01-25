@@ -2,8 +2,8 @@ use crate::{AudioContext, PlaySoundParams};
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::mpsc;
+use std::sync::Arc;
 
 enum AudioMessage {
     AddSound(u32, Vec<f32>),
@@ -242,47 +242,6 @@ impl Mixer {
 }
 
 /// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
-pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
-    let mut audio_stream = {
-        let file = std::io::Cursor::new(bytes);
-        audrey::Reader::new(file).unwrap()
-    };
-
-    let description = audio_stream.description();
-    let channels_count = description.channel_count();
-    assert!(channels_count == 1 || channels_count == 2);
-
-    let mut frames: Vec<f32> = Vec::with_capacity(4096);
-    let mut samples_iterator = audio_stream
-        .samples::<f32>()
-        .map(std::result::Result::unwrap);
-
-    // audrey's frame docs: "TODO: Should consider changing this behaviour to check the audio file's actual number of channels and automatically convert to F's number of channels while reading".
-    // lets fix this TODO here
-    if channels_count == 1 {
-        frames.extend(samples_iterator.flat_map(|sample| [sample, sample]));
-    } else if channels_count == 2 {
-        frames.extend(samples_iterator);
-    }
-
-    let sample_rate = description.sample_rate();
-
-    // stupid nearest-neighbor resampler
-    if sample_rate != 44100 {
-        let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
-
-        // `new_length` must be an even number
-        new_length -= new_length % 2;
-
-        let mut resampled = vec![0.0; new_length];
-
-        for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
-            let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
-            sample[0] = frames[ix];
-            sample[1] = frames[ix + 1];
-        }
-        return Ok(resampled);
-    }
-
-    Ok(frames)
+pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, &'static str> {
+    Err("Loading from files is not supported in this version of quad-snd")
 }
