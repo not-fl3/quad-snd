@@ -248,30 +248,39 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, &'static str> {
     use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
+    use symphonia::core::probe::Hint;
     use symphonia::default::get_codecs;
     use symphonia::default::get_probe;
-    use symphonia::core::probe::Hint;
 
-    let cursor = std::io::Cursor::new(bytes);
+    let cursor = std::io::Cursor::new(bytes.to_vec());
     let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
 
     let mut hint = Hint::new();
     hint.with_extension("mp3");
 
     let mut probe = get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .map_err(|_| "Failed to probe format")?;
 
-    let mut format = probe.format;
-    let track = format.default_track().ok_or("No default track")?;
+    // Extract track info and parameters before we start decoding
+    let track = probe.format.default_track().ok_or("No default track")?;
+    let codec_params = track.codec_params.clone();
+    let channels = codec_params.channels.unwrap();
+
     let mut decoder = get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make(&codec_params, &DecoderOptions::default())
         .map_err(|_| "Failed to create decoder")?;
 
     let mut samples = Vec::new();
     let mut sample_buf = Vec::new();
 
-    while let Ok(packet) = probe.format.next_packet() {
+    let mut format = probe.format;
+    while let Ok(packet) = format.next_packet() {
         let decoded = decoder.decode(&packet).map_err(|_| "Failed to decode")?;
         let spec = *decoded.spec();
 
@@ -285,26 +294,21 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, &'static str> {
     }
 
     // Convert to stereo if mono
-    let frames = if track.codec_params.channels.unwrap().count() == 1 {
-        samples.iter().flat_map(|&s| [s, s]).collect()
-    } else {
-        samples
-    };
-
-    // Same resampling logic as before if needed
-    let sample_rate = track.codec_params.sample_rate.unwrap();
-    if sample_rate != 44100 {
-        let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+    let sample_rate = codec_params.sample_rate.unwrap();
+    let frames: Result<Vec<f32>, _> = if channels.count() == 1 {
+        let mut new_length = ((44100 as f32 / sample_rate as f32) * samples.len() as f32) as usize;
         new_length -= new_length % 2;
 
-        let mut resampled = vec![0.0; new_length];
+        let mut resampled: Vec<f32> = vec![0.0; new_length];
         for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
-            let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
-            sample[0] = frames[ix];
-            sample[1] = frames[ix + 1];
+            let ix = 2 * ((n as f32 / new_length as f32) * samples.len() as f32) as usize;
+            sample[0] = samples[ix];
+            sample[1] = samples[ix + 1];
         }
         Ok(resampled)
     } else {
-        Ok(frames)
-    }
+        Ok(samples)
+    };
+
+    frames
 }
