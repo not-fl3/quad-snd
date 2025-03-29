@@ -59,7 +59,7 @@ unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
 
     // Write parameters
     if sys::snd_pcm_hw_params(pcm_handle, hw_params) < 0 {
-        panic!("Can't set harware parameters.");
+        panic!("Can't set hardware parameters.");
     }
     sys::snd_pcm_hw_params_free(hw_params);
 
@@ -110,9 +110,9 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
         }
 
         // // find out how much space is available for playback data
-        // teoretically it should reduce latency - we will fill a minimum amount of
+        // theoretically it should reduce latency - we will fill a minimum amount of
         // frames just to keep alsa busy and will be able to mix some fresh sounds
-        // it does, but also randmly panics sometimes
+        // it does, but also randomly panics sometimes
 
         // let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
         // println!("{}", frames_to_deliver);
