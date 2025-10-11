@@ -177,16 +177,15 @@ function audio_playback_set_volume(playback_key, volume) {
     }
 }
 
-function register_plugin(importObject) {
-    importObject.env.audio_init = audio_init;
-    importObject.env.audio_add_buffer = audio_add_buffer;
-    importObject.env.audio_play_buffer = audio_play_buffer;
-    importObject.env.audio_source_is_loaded = audio_source_is_loaded;
-    importObject.env.audio_source_set_volume = audio_source_set_volume;
-    importObject.env.audio_source_stop = audio_source_stop;
-    importObject.env.audio_source_delete = audio_source_delete;
-    importObject.env.audio_playback_stop = audio_playback_stop;
-    importObject.env.audio_playback_set_volume = audio_playback_set_volume;
-}
-
-miniquad_add_plugin({ register_plugin, version: 1, name: "macroquad_audio" });
+miniquad_add_plugin({
+    register_plugin: function (importObject) {
+        importObject.env.audio_init = audio_init;
+        importObject.env.audio_add_buffer = audio_add_buffer;
+        importObject.env.audio_play_buffer = audio_play_buffer;
+        importObject.env.audio_source_is_loaded = audio_source_is_loaded;
+        importObject.env.audio_source_set_volume = audio_source_set_volume;
+        importObject.env.audio_source_stop = audio_source_stop;
+        importObject.env.audio_source_delete = audio_source_delete;
+        importObject.env.audio_playback_stop = audio_playback_stop;
+        importObject.env.audio_playback_set_volume = audio_playback_set_volume;
+}, version: 1, name: "macroquad_audio" });

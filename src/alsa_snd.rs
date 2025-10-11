@@ -136,9 +136,9 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
         }
 
         // // find out how much space is available for playback data
-        // teoretically it should reduce latency - we will fill a minimum amount of
+        // theoretically it should reduce latency - we will fill a minimum amount of
         // frames just to keep alsa busy and will be able to mix some fresh sounds
-        // it does, but also randmly panics sometimes
+        // it does, but also randomly panics sometimes
 
         // let frames_to_deliver = sys::snd_pcm_avail_update(pcm_handle);
         // println!("{}", frames_to_deliver);
@@ -154,21 +154,21 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
         mixer.fill_audio_buffer(&mut buffer, frames_to_deliver as usize);
 
         // send filled buffer back to alsa
-        let frames_writen = sys::snd_pcm_writei(
+        let frames_written = sys::snd_pcm_writei(
             pcm_handle,
             buffer.as_ptr() as *const _,
             frames_to_deliver as _,
         );
-        if frames_writen == -libc::EPIPE as ::std::os::raw::c_long {
+        if frames_written == -libc::EPIPE as ::std::os::raw::c_long {
             println!("Underrun occured: -EPIPE, attempting recover");
 
-            sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
+            sys::snd_pcm_recover(pcm_handle, frames_written as _, 0);
         }
 
-        if frames_writen > 0 && frames_writen != frames_to_deliver as _ {
-            println!("Underrun occured: frames_writen != frames_to_deliver, attempting recover");
+        if frames_written > 0 && frames_written != frames_to_deliver as _ {
+            println!("Underrun occured: frames_written != frames_to_deliver, attempting recover");
 
-            sys::snd_pcm_recover(pcm_handle, frames_writen as _, 0);
+            sys::snd_pcm_recover(pcm_handle, frames_written as _, 0);
         }
     }
 }
