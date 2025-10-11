@@ -13,6 +13,7 @@ mod consts {
     pub const RATE: u32 = 44100;
     pub const CHANNELS: u32 = 2;
     pub const PCM_BUFFER_SIZE: ::std::os::raw::c_ulong = 4096;
+    pub const PCM_PERIOD_SIZE: ::std::os::raw::c_ulong = PCM_BUFFER_SIZE / 4; /* Send interrupt every 1024 (stereo) frames. */
 }
 
 unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
@@ -53,6 +54,15 @@ unsafe fn setup_pcm_device() -> *mut sys::snd_pcm_t {
             < 0
         {
             panic!("Cannot set buffer size.");
+        }
+        if sys::snd_pcm_hw_params_set_period_size(
+            pcm_handle,
+            hw_params,
+            consts::PCM_PERIOD_SIZE,
+            0, /* equal to, not smaller, not bigger */
+        ) < 0
+        {
+            panic!("Cannot set period size.");
         }
         if sys::snd_pcm_hw_params_set_channels(pcm_handle, hw_params, consts::CHANNELS) < 0 {
             panic!("Cannot set channels number.");
