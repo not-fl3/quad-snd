@@ -241,8 +241,15 @@ impl Mixer {
     }
 }
 
-/// Parse ogg/wav/etc and get  resampled to 44100, 2 channel data
+/// Parse ogg/wav/mp3/etc and get resampled to 44100, 2 channel data.
 pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
+    #[cfg(feature = "mp3")]
+    {
+        if looks_like_mp3(bytes) {
+            return load_mp3_samples(bytes);
+        }
+    }
+
     let mut audio_stream = {
         let file = std::io::Cursor::new(bytes);
         audrey::Reader::new(file).unwrap()
@@ -266,23 +273,69 @@ pub fn load_samples_from_file(bytes: &[u8]) -> Result<Vec<f32>, ()> {
     }
 
     let sample_rate = description.sample_rate();
+    Ok(resample_to_44100(frames, sample_rate))
+}
 
-    // stupid nearest-neighbor resampler
-    if sample_rate != 44100 {
-        let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
-
-        // `new_length` must be an even number
-        new_length -= new_length % 2;
-
-        let mut resampled = vec![0.0; new_length];
-
-        for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
-            let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
-            sample[0] = frames[ix];
-            sample[1] = frames[ix + 1];
-        }
-        return Ok(resampled);
+fn resample_to_44100(frames: Vec<f32>, sample_rate: u32) -> Vec<f32> {
+    if sample_rate == 44100 {
+        return frames;
     }
 
-    Ok(frames)
+    // stupid nearest-neighbor resampler
+    let mut new_length = ((44100 as f32 / sample_rate as f32) * frames.len() as f32) as usize;
+
+    // `new_length` must be an even number
+    new_length -= new_length % 2;
+
+    let mut resampled = vec![0.0; new_length];
+
+    for (n, sample) in resampled.chunks_exact_mut(2).enumerate() {
+        let ix = 2 * ((n as f32 / new_length as f32) * frames.len() as f32) as usize;
+        sample[0] = frames[ix];
+        sample[1] = frames[ix + 1];
+    }
+    resampled
+}
+
+#[cfg(feature = "mp3")]
+fn looks_like_mp3(data: &[u8]) -> bool {
+    if data.len() >= 3 && &data[..3] == b"ID3" {
+        return true;
+    }
+    data.len() >= 2 && data[0] == 0xFF && (data[1] & 0xE0) == 0xE0
+}
+
+#[cfg(feature = "mp3")]
+fn strip_id3v2(data: &[u8]) -> &[u8] {
+    if data.len() < 10 || &data[..3] != b"ID3" {
+        return data;
+    }
+    // ID3v2 size: 28-bit synchsafe integer in bytes 6..10.
+    let size = ((data[6] as u32 & 0x7F) << 21)
+        | ((data[7] as u32 & 0x7F) << 14)
+        | ((data[8] as u32 & 0x7F) << 7)
+        | (data[9] as u32 & 0x7F);
+    let total = 10usize.saturating_add(size as usize);
+    if total < data.len() {
+        &data[total..]
+    } else {
+        data
+    }
+}
+
+#[cfg(feature = "mp3")]
+fn load_mp3_samples(bytes: &[u8]) -> Result<Vec<f32>, ()> {
+    let body = strip_id3v2(bytes);
+    let (header, samples) = puremp3::read_mp3(body).map_err(|_| ())?;
+    // puremp3 yields (left, right) f32 pairs already in [-1.0, 1.0];
+    // mono streams are pre-duplicated to both channels.
+    let mut frames: Vec<f32> = Vec::with_capacity(4096);
+    for (l, r) in samples {
+        frames.push(l);
+        frames.push(r);
+    }
+    if frames.is_empty() {
+        return Err(());
+    }
+    Ok(resample_to_44100(frames, header.sample_rate.hz()))
 }
