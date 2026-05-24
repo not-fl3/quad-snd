@@ -130,8 +130,8 @@ unsafe fn audio_thread(mut mixer: crate::mixer::Mixer) {
     let pcm_handle = setup_pcm_device();
 
     loop {
-        // Wait for PCM to be ready for next write (no timeout)
-        if sys::snd_pcm_wait(pcm_handle, -1) < 0 {
+        // Wait for PCM to be ready for next write (infinitly, SND_PCM_WAIT_INFINITE == -1)
+        if sys::snd_pcm_wait(pcm_handle, -1) < 1 {
             panic!("PCM device is not ready");
         }
 
